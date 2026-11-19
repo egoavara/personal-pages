@@ -213,32 +213,32 @@
   // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표.
   const SCENES = {
     south: { img: 's-south.webp', w: 1920, h: 1440, fx: 840, place: '판교역 · 신분당선 개찰구 앞',
-      path: [[1010, 1440, 440], [900, 1220, 190], [815, 1090, 80], [785, 1040, 40]], tgt: [782, 950], dist: 30, icon: 'up',
+      hy: 944, gw: 0.5, path: [[1010, 1440], [775, 1066], [782, 1012]], tgt: [782, 940], dist: 30, icon: 'up',
       title: '정면 통로로 직진', sub: '천장 "교통카드 충전" 간판 아래로, 멀리 KAKAO AGIT 문이 보여요' },
     north: { img: 's-north.webp', w: 1920, h: 1440, fx: 960, place: '판교역 · 경강선 개찰구 앞',
       hy: 868, gw: 0.6, path: [[960, 1440], [1042, 908], [925, 908]], tgt: [1042, 845], dist: 45, icon: 'left',
       turn: { at: [918, 905], text: '◀ 벽 앞에서 왼쪽' },
       title: '발권기 앞까지 직진 후 왼쪽', sub: '발권기 앞에 도착해서 왼쪽을 바라보면 KAKAO AGIT 문이 보여요' },
     door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, place: '판교역 · 경강선 역무실 옆',
-      path: [[620, 1920, 520], [575, 1560, 300], [562, 1260, 180], [575, 1150, 130]], tgt: [630, 1010], dist: 8, icon: 'door',
+      hy: 950, gw: 0.5, path: [[620, 1920], [572, 1135]], tgt: [572, 1010], dist: 8, icon: 'door',
       title: 'KAKAO AGIT 문으로 들어가기', sub: '오른쪽은 역무실, 바닥의 노란 점자블록을 따라가세요' },
     esc: { img: 's-esc.webp', w: 1440, h: 1920, fx: 800, place: '판교역 → 아지트 연결 통로',
       path: [[850, 1900, 250], [880, 1500, 170], [880, 1150, 110], [850, 850, 55]], tgt: [850, 790], icon: 'esc',
       title: '에스컬레이터 타고 올라가기', sub: '문 안쪽, 오른쪽 에스컬레이터가 올라가는 방향이에요' },
     adoor: { img: 'a-door.webp', w: 1920, h: 1440, fx: 660, place: '아지트 B1 · 지하철 연결 입구',
-      path: [[960, 1440, 520], [760, 1280, 280], [610, 1150, 150], [565, 1090, 100]], tgt: [560, 930], dist: 5, icon: 'door',
+      hy: 770, gw: 0.4, path: [[760, 1440], [300, 1325], [568, 1184]], tgt: [568, 960], dist: 5, icon: 'door',
       title: 'KAKAO AGIT 유리문 통과', sub: '문 너머로 커다란 LED 전광판 복도가 보여요' },
     c1: { img: 'a-c1.webp', w: 1920, h: 1440, fx: 800, place: '아지트 B1 · 지하철 통로',
       hy: 764, gw: 0.6, path: [[520, 1440], [678, 926], [985, 926]], tgt: [935, 640], dist: 15, icon: 'right',
       title: '복도 끝에서 우회전', sub: '천장 안내판의 "KAKAO →" 방향이에요. 오른쪽 벽은 LED 전광판' },
     c2: { img: 'a-c2.webp', w: 1920, h: 1440, fx: 940, place: '아지트 B1 · 엘리베이터 가는 길',
-      path: [[760, 1440, 560], [880, 1080, 260], [945, 860, 110], [962, 775, 60]], tgt: [962, 690], dist: 25, icon: 'elev', trans: 'elev',
+      hy: 680, gw: 0.5, path: [[760, 1440], [962, 765]], tgt: [962, 690], dist: 25, icon: 'elev', trans: 'elev',
       title: '정면 엘리베이터 타고 3층으로', sub: '복도 끝 B1 엘리베이터를 타고 3층에서 내리면 바로 도착이에요' },
     f1: { img: 'a-1f.webp', w: 1920, h: 1440, fx: 960, place: '아지트 1층 · 아트리움',
       path: [[985, 1440, 300], [975, 1300, 200], [965, 1000, 150], [955, 620, 70]], tgt: [950, 470], icon: 'esc',
       title: '에스컬레이터 타고 3층까지', sub: '오른쪽이 올라가는 방향. 안내판 "↑3 KAKAO WELCOME DESK"를 확인하세요' },
     f3: { img: 'a-3f-esc.webp', w: 1920, h: 1440, fx: 780, place: '아지트 3층 · 에스컬레이터 앞',
-      path: [[1150, 1440, 560], [880, 1200, 300], [650, 1010, 140], [545, 935, 80]], tgt: [540, 790], dist: 20, icon: 'left',
+      hy: 780, gw: 0.5, path: [[1150, 1440], [645, 962]], tgt: [630, 800], dist: 20, icon: 'left',
       title: '왼쪽 통로로 들어가기', sub: '크리스마스 트리가 보이는 쪽이 웰컴데스크예요' },
     goal: { img: 'a-goal.webp', w: 1920, h: 1440, fx: 900, place: '아지트 3층 · 엘리베이터 앞',
       tgt: [900, 1090], ring: [900, 1160, 260], icon: 'flag', goal: true,
@@ -352,7 +352,7 @@
       return { X: m('X'), Z: m('Z'), tX: m('tX'), tZ: m('tZ') };
     };
     const e = S[S.length - 1];
-    const ring = Array.from({ length: 28 }, (_, i) => fmt(proj(e.X + Math.cos(i / 14 * Math.PI) * W * 0.9, e.Z + Math.sin(i / 14 * Math.PI) * W * 0.9))).join(' ');
+    const ring = Array.from({ length: 28 }, (_, i) => fmt(proj(e.X + Math.cos(i / 14 * Math.PI) * W * 0.6, e.Z + Math.sin(i / 14 * Math.PI) * W * 0.6))).join(' ');
     return {
       total: d, n: Math.max(3, Math.round(d / (W * 1.5))),
       ribbon: S.map((q) => fmt(off(q, W / 2, 0))).concat(S.map((q) => fmt(off(q, -W / 2, 0))).reverse()).join(' '),
