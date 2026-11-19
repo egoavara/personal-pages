@@ -1,2 +1,3 @@
 # 루트 index.html 은 배포 때 scripts/build-index.mjs 가 자동 생성한다
 /index.html
+node_modules/

@@ -1,0 +1,12 @@
+{
+  "name": "personal-pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-index.mjs",
+    "seal": "node scripts/seal-link.mjs"
+  },
+  "devDependencies": {
+    "hash-wasm": "4.12.0"
+  }
+}
