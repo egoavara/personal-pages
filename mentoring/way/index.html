@@ -82,6 +82,10 @@
   @keyframes spin { to { transform: rotateY(360deg); } }
   .beam { position: absolute; z-index: 1; width: 3px; transform: translateX(-50%); pointer-events: none; border-radius: 2px;
           background: linear-gradient(180deg, rgba(var(--y-rgb), .95), rgba(var(--y-rgb), 0)); box-shadow: 0 0 12px rgba(var(--y-rgb), .8); }
+  /* 꺾이는 방향 표시: 가리키는 쪽으로 톡톡 움직인다 */
+  .turn { position: absolute; z-index: 2; transform: translate(-100%, -50%); padding: 5px 12px; border-radius: 999px; background: var(--y); color: #111;
+          font-size: 14px; font-weight: 800; white-space: nowrap; pointer-events: none; box-shadow: 0 0 14px rgba(var(--y-rgb), .8); animation: nudge 1s ease-in-out infinite; }
+  @keyframes nudge { 50% { transform: translate(calc(-100% - 9px), -50%); } }
   .wp.goal .gem { background: #7CFFB2; filter: drop-shadow(0 0 10px #7CFFB2); }
   .wp.goal .lbl { color: #7CFFB2; border-color: rgba(124,255,178,.7); }
 
@@ -129,7 +133,7 @@
   .lift .fl small { font-size: 12px; color: var(--mute); }
 
   @media (prefers-reduced-motion: reduce) {
-    .wp, .wp .gem, .ring { animation: none; }
+    .wp, .wp .gem, .ring, .turn { animation: none; }
     .cam, .cam.in { transition: opacity .2s; }
     .cam.out, .cam.pre { transform: none; filter: none; }
   }
@@ -168,6 +172,7 @@
         <img id="photo" alt="">
         <svg id="fx" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="beam" id="beam"></div>
+        <div class="turn" id="turn" hidden></div>
         <button class="wp" id="wp" aria-label="다음 지점으로 전진"><span class="lbl" id="wpl"></span><span class="gem"></span></button>
       </div>
     </div>
@@ -202,14 +207,16 @@
 (() => {
   // ---------- 경로 데이터 ----------
   // path: 사진 픽셀 좌표 [x, y, 바닥 경로 폭]. 화면 아래(가까움) → 위(멀리) 순서.
+  // turn: 경로가 꺾이는 곳에 띄울 방향 표시 { at: 위치, text: 문구 }.
   // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표.
   const SCENES = {
     south: { img: 's-south.webp', w: 1920, h: 1440, fx: 840, place: '판교역 · 신분당선 개찰구 앞',
       path: [[1010, 1440, 440], [900, 1220, 190], [815, 1090, 80], [785, 1040, 40]], tgt: [782, 950], dist: 30, icon: 'up',
       title: '정면 통로로 직진', sub: '천장 "교통카드 충전" 간판 아래로, 멀리 KAKAO AGIT 문이 보여요' },
-    north: { img: 's-north.webp', w: 1920, h: 1440, fx: 1030, place: '판교역 · 경강선 개찰구 앞',
-      path: [[960, 1440, 560], [1000, 1150, 250], [1035, 1000, 90], [1042, 950, 50]], tgt: [1042, 860], dist: 45, icon: 'up',
-      title: '정면 발권기까지 직진', sub: '발권기 앞에 도착해서 왼쪽을 바라보면 KAKAO AGIT 문이 보여요' },
+    north: { img: 's-north.webp', w: 1920, h: 1440, fx: 960, place: '판교역 · 경강선 개찰구 앞',
+      path: [[960, 1440, 560], [1000, 1150, 250], [1034, 1020, 100], [1026, 978, 50], [960, 966, 36], [870, 962, 30]], tgt: [1040, 870], dist: 45, icon: 'left',
+      turn: { at: [905, 915], text: '◀ 여기서 왼쪽' },
+      title: '발권기 앞까지 직진 후 왼쪽', sub: '발권기 앞에 도착해서 왼쪽을 바라보면 KAKAO AGIT 문이 보여요' },
     door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, place: '판교역 · 경강선 역무실 옆',
       path: [[620, 1920, 520], [575, 1560, 300], [562, 1260, 180], [575, 1150, 130]], tgt: [630, 1010], dist: 8, icon: 'door',
       title: 'KAKAO AGIT 문으로 들어가기', sub: '오른쪽은 역무실, 바닥의 노란 점자블록을 따라가세요' },
@@ -347,7 +354,9 @@
     const W = stage.clientWidth, A = W * 0.45;
     let lo = Math.max(minTx, tx - A), hi = Math.min(0, tx + A);
     // 웨이포인트가 화면 밖으로 나가지 않는 범위로 좁힌다 (드래그로 멀리 벗어난 상태면 그대로 둔다)
-    const gx = cur.tgt[0] * scale, lo2 = Math.max(lo, W * 0.18 - gx), hi2 = Math.min(hi, W * 0.82 - gx);
+    // 방향 표시가 있으면 그 왼쪽 끝(표시 폭 약 130px)도 화면 안에 남게 한다
+    const gx = cur.tgt[0] * scale, tl = cur.turn ? 8 - (cur.turn.at[0] * scale - 130) : -Infinity;
+    const lo2 = Math.max(lo, W * 0.18 - gx, tl), hi2 = Math.min(hi, W * 0.82 - gx);
     if (lo2 <= tx && tx <= hi2) { lo = lo2; hi = hi2; }
     const c = (lo + hi) / 2, a = (hi - lo) / 2;
     sway = { c, a, p0: a > 1 ? Math.asin(Math.max(-1, Math.min(1, (tx - c) / a))) : 0, t0: performance.now() + delay };
@@ -374,6 +383,7 @@
     setSway(keepPan ? 0 : 900);
     applyPan();
     const [x, y] = cur.tgt;
+    if (cur.turn) { $('turn').style.left = cur.turn.at[0] * scale + 'px'; $('turn').style.top = cur.turn.at[1] * scale + 'px'; }
     wp.style.left = x * scale + 'px'; wp.style.top = y * scale + 'px';
     const endY = cur.path ? cur.path[cur.path.length - 1][1] : (cur.ring ? cur.ring[1] : y);
     beam.style.left = x * scale + 'px'; beam.style.top = y * scale - 4 + 'px';
@@ -393,6 +403,7 @@
     drawFx(cur);
     layout(false);
     const last = i === route.length - 1;
+    $('turn').hidden = !cur.turn; $('turn').textContent = cur.turn ? cur.turn.text : '';
     wp.classList.toggle('goal', !!cur.goal);
     $('wpl').textContent = cur.goal ? '도착 지점' : (cur.dist ? `약 ${cur.dist}m` : '위로');
     $('place').textContent = cur.place;
