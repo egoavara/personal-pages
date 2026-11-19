@@ -59,6 +59,8 @@
   .cam.fade { opacity: 0; transition: opacity .25s; }
   .scene { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
   .scene img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+  .scene video { position: absolute; object-fit: fill; opacity: 0; transition: opacity .6s; pointer-events: none; }
+  .scene video.on { opacity: 1; }
   .scene svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
   .stage::after { /* 화면 가장자리 비네트 */
     content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -166,6 +168,7 @@
     <div class="cam" id="cam">
       <div class="scene" id="scene">
         <img id="photo" alt="">
+        <video id="live" muted loop playsinline preload="auto" aria-hidden="true"></video>
         <svg id="fx" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="beam" id="beam"></div>
         <button class="wp" id="wp" aria-label="다음 지점으로 전진"><span class="lbl" id="wpl"></span><span class="gem"></span></button>
@@ -202,21 +205,22 @@
 (() => {
   // ---------- 경로 데이터 ----------
   // path: 사진 픽셀 좌표 [x, y, 바닥 경로 폭]. 화면 아래(가까움) → 위(멀리) 순서.
+  // live: 사진 위에 겹쳐 재생할 반복 영상(같은 이름의 .mp4)의 위치 [x, y, 폭, 높이]. 광고판·에스컬레이터처럼 움직이는 부분만 담겨 있다.
   // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표.
   const SCENES = {
-    south: { img: 's-south.webp', w: 1920, h: 1440, fx: 840, place: '판교역 · 신분당선 개찰구 앞',
+    south: { img: 's-south.webp', live: [308, 718, 344, 548], w: 1920, h: 1440, fx: 840, place: '판교역 · 신분당선 개찰구 앞',
       path: [[1010, 1440, 440], [900, 1220, 190], [815, 1090, 80], [785, 1040, 40]], tgt: [782, 950], dist: 30, icon: 'up',
       title: '정면 통로로 직진', sub: '천장 "교통카드 충전" 간판 아래로, 멀리 KAKAO AGIT 문이 보여요' },
-    north: { img: 's-north.webp', w: 1920, h: 1440, fx: 1030, place: '판교역 · 경강선 개찰구 앞',
+    north: { img: 's-north.webp', live: [278, 724, 1338, 314], w: 1920, h: 1440, fx: 1030, place: '판교역 · 경강선 개찰구 앞',
       path: [[960, 1440, 560], [1000, 1150, 250], [1035, 1000, 90], [1042, 950, 50]], tgt: [1042, 860], dist: 45, icon: 'up',
       title: '정면 발권기까지 직진', sub: '승차권 발권기 바로 옆 통로에 KAKAO AGIT 문이 있어요' },
     door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, place: '판교역 · 경강선 역무실 옆',
       path: [[620, 1920, 520], [575, 1560, 300], [562, 1260, 180], [575, 1150, 130]], tgt: [630, 1010], dist: 8, icon: 'door',
       title: 'KAKAO AGIT 문으로 들어가기', sub: '오른쪽은 역무실, 바닥의 노란 점자블록을 따라가세요' },
-    esc: { img: 's-esc.webp', w: 1440, h: 1920, fx: 800, place: '판교역 → 아지트 연결 통로',
+    esc: { img: 's-esc.webp', live: [26, 756, 1240, 1050], w: 1440, h: 1920, fx: 800, place: '판교역 → 아지트 연결 통로',
       path: [[850, 1900, 250], [880, 1500, 170], [880, 1150, 110], [850, 850, 55]], tgt: [850, 790], icon: 'esc',
       title: '에스컬레이터 타고 올라가기', sub: '문 안쪽, 오른쪽 에스컬레이터가 올라가는 방향이에요' },
-    adoor: { img: 'a-door.webp', w: 1920, h: 1440, fx: 660, place: '아지트 B1 · 지하철 연결 입구',
+    adoor: { img: 'a-door.webp', live: [428, 542, 274, 398], w: 1920, h: 1440, fx: 660, place: '아지트 B1 · 지하철 연결 입구',
       path: [[960, 1440, 520], [760, 1280, 280], [610, 1150, 150], [565, 1090, 100]], tgt: [560, 930], dist: 5, icon: 'door',
       title: 'KAKAO AGIT 유리문 통과', sub: '문 너머로 커다란 LED 전광판 복도가 보여요' },
     c1: { img: 'a-c1.webp', w: 1920, h: 1440, fx: 800, place: '아지트 B1 · 지하철 통로',
@@ -225,7 +229,7 @@
     c2: { img: 'a-c2.webp', w: 1920, h: 1440, fx: 940, place: '아지트 B1 · 엘리베이터 가는 길',
       path: [[760, 1440, 560], [880, 1080, 260], [945, 860, 110], [962, 775, 60]], tgt: [962, 690], dist: 25, icon: 'elev', trans: 'elev',
       title: '정면 엘리베이터 타고 3층으로', sub: '복도 끝 B1 엘리베이터를 타고 3층에서 내리면 바로 도착이에요' },
-    f1: { img: 'a-1f.webp', w: 1920, h: 1440, fx: 960, place: '아지트 1층 · 아트리움',
+    f1: { img: 'a-1f.webp', live: [586, 656, 540, 690], w: 1920, h: 1440, fx: 960, place: '아지트 1층 · 아트리움',
       path: [[985, 1440, 300], [975, 1300, 200], [965, 1000, 150], [955, 620, 70]], tgt: [950, 470], icon: 'esc',
       title: '에스컬레이터 타고 3층까지', sub: '오른쪽이 올라가는 방향. 안내판 "↑3 KAKAO WELCOME DESK"를 확인하세요' },
     f3: { img: 'a-3f-esc.webp', w: 1920, h: 1440, fx: 780, place: '아지트 3층 · 에스컬레이터 앞',
@@ -252,7 +256,8 @@
 
   const $ = (id) => document.getElementById(id);
   const stage = $('stage'), cam = $('cam'), sceneEl = $('scene'), photo = $('photo'), fx = $('fx');
-  const wp = $('wp'), beam = $('beam');
+  const wp = $('wp'), beam = $('beam'), liveEl = $('live');
+  liveEl.addEventListener('playing', () => liveEl.classList.add('on'));
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -390,6 +395,16 @@
       try { await photo.decode(); } catch (e) { /* 디코드 실패해도 진행 */ }
     }
     photo.alt = cur.place;
+    // 움직이는 부분이 있는 장면은 그 자리에 반복 영상을 겹친다. 재생이 시작돼야 보이므로 실패하면 사진만 남는다.
+    liveEl.classList.remove('on');
+    if (cur.live && !reduce) {
+      const [x, y, w, h] = cur.live;
+      liveEl.style.cssText = `left:${x / cur.w * 100}%;top:${y / cur.h * 100}%;width:${w / cur.w * 100}%;height:${h / cur.h * 100}%`;
+      liveEl.src = 'assets/' + cur.img.replace('.webp', '.mp4');
+      liveEl.play().catch(() => {});
+    } else if (liveEl.getAttribute('src')) {
+      liveEl.pause(); liveEl.removeAttribute('src'); liveEl.load();
+    }
     drawFx(cur);
     layout(false);
     const last = i === route.length - 1;
