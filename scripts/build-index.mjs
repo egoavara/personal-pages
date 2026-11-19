@@ -52,6 +52,10 @@ const items = pages.map((p) => `
       <span class="m">/${esc(p.path)}/${p.date ? ` · ${esc(p.date)}` : ''}</span>
     </a></li>`).join('');
 
+// 숨김 링크: scripts/seal-link.mjs 로 만든 암호문만 페이지에 넣는다(평문 주소는 저장소에 없음)
+const SECRET_FILE = join(ROOT, 'secret-links.json');
+const sealed = safeExists(SECRET_FILE) ? JSON.parse(readFileSync(SECRET_FILE, 'utf8')) : [];
+
 const out = `<!doctype html>
 <html lang="ko">
 <head>
@@ -79,7 +83,14 @@ const out = `<!doctype html>
   .t { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
   .d { color: var(--mute); font-size: 15px; line-height: 1.5; }
   .m { color: var(--mute); font: 12px ui-monospace, Menlo, monospace; }
-  footer { margin-top: 48px; color: var(--mute); font-size: 12px; }
+  footer { margin-top: 48px; color: var(--mute); font-size: 12px; user-select: none; }
+  #q { margin-top: 14px; width: 100%; max-width: 280px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+       background: var(--card); color: var(--fg); font: 13px ui-monospace, Menlo, monospace; outline: none; }
+  #q:focus { border-color: var(--mute); }
+  #q.no { animation: no .3s; }
+  @keyframes no { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  #r { margin-top: 14px; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -88,8 +99,49 @@ const out = `<!doctype html>
   <p class="sub">페이지 ${pages.length}개 · 최근 수정순</p>
   <ul>${items}
   </ul>
-  <footer>이 목록은 배포할 때 자동으로 만들어집니다.</footer>
+  <footer id="ft">이 목록은 배포할 때 자동으로 만들어집니다.</footer>${sealed.length ? `
+  <input id="q" type="password" autocomplete="off" spellcheck="false" aria-label="passphrase" hidden>
+  <ul id="r" hidden></ul>
 </main>
+<script id="sl" type="application/json">${JSON.stringify(sealed)}</script>
+<script>
+(function () {
+  var sealed = JSON.parse(document.getElementById('sl').textContent);
+  var q = document.getElementById('q'), r = document.getElementById('r'), ft = document.getElementById('ft');
+  var taps = 0, tapT = 0;
+  function open() { q.hidden = false; q.value = ''; q.focus(); }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); open(); }
+    if (e.key === 'Escape') { q.hidden = true; r.hidden = true; }
+  });
+  ft.addEventListener('click', function () {
+    clearTimeout(tapT); taps++; tapT = setTimeout(function () { taps = 0; }, 600);
+    if (taps >= 3) { taps = 0; open(); }
+  });
+  function b(s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); }
+  async function tryOne(pass, it) {
+    var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass.normalize('NFC')), 'PBKDF2', false, ['deriveKey']);
+    var key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b(it.salt), iterations: it.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    try { return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(it.iv) }, key, b(it.data)))); }
+    catch (e) { return null; }
+  }
+  q.addEventListener('keydown', async function (e) {
+    if (e.key !== 'Enter' || !q.value) return;
+    var pass = q.value, hits = (await Promise.all(sealed.map(function (it) { return tryOne(pass, it); }))).filter(Boolean);
+    if (!hits.length) { q.classList.remove('no'); void q.offsetWidth; q.classList.add('no'); q.value = ''; return; }
+    if (hits.length === 1) { location.href = hits[0].url; return; }
+    r.innerHTML = '';
+    hits.forEach(function (h) {
+      var li = document.createElement('li'), a = document.createElement('a');
+      a.href = h.url; a.innerHTML = '<span class="t"></span><span class="m"></span>';
+      a.firstChild.textContent = h.label || h.url; a.lastChild.textContent = h.url;
+      li.appendChild(a); r.appendChild(li);
+    });
+    r.hidden = false; q.hidden = true;
+  });
+})();
+</script>` : `
+</main>`}
 </body>
 </html>
 `;
