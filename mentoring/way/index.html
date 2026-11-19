@@ -52,7 +52,7 @@
   /* ---------- 게임 화면 ---------- */
   #game { position: fixed; inset: 0; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; }
   .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #000; touch-action: none; cursor: grab; }
-  .cam { position: absolute; inset: 0; will-change: transform, opacity; transition: transform .62s cubic-bezier(.5, 0, .9, .5), opacity .62s ease-in, filter .62s ease-in; }
+  .cam { position: absolute; inset: 0; perspective: 1100px; will-change: transform, opacity; transition: transform .62s cubic-bezier(.5, 0, .9, .5), opacity .62s ease-in, filter .62s ease-in; }
   .cam.out { transform: scale(2.6); opacity: 0; filter: blur(6px); }
   .cam.pre { transform: scale(1.22); opacity: 0; transition: none; }
   .cam.in { transition: transform .7s var(--ease), opacity .45s ease-out; }
@@ -258,6 +258,8 @@
 
   let route = null, routeKey = '', idx = 0, cur = null, busy = false;
   let scale = 1, tx = 0, ty = 0, minTx = 0, samples = null, chevEls = [];
+  let sway = null; // 자동 좌우 둘러보기 상태 { c: 중심, a: 진폭, p0: 시작 위상, t0: 시작 시각 }
+  const SWAY_MS = 26000, SWAY_ROT = 2; // 한 번 왕복하는 시간(ms), 끝에서 고개를 돌린 듯 기울이는 각도(도)
 
   // ---------- 경로 기하: Catmull-Rom 으로 부드럽게 잇고, 폭으로 원근 거리를 누적 ----------
   function sample(path) {
@@ -332,14 +334,36 @@
         el.setAttribute('opacity', Math.min(1, f * 6, (1 - f) * 5).toFixed(2));
       });
     }
+    // 로드뷰처럼 아주 천천히 좌우로 훑는다. 드래그 중이거나 장면 전환 중에는 멈춘다.
+    if (sway && sway.a > 1 && !reduce && !drag.on && !busy && now >= sway.t0) {
+      tx = sway.c + sway.a * Math.sin(sway.p0 + (now - sway.t0) / SWAY_MS * 2 * Math.PI);
+      applyPan();
+    }
     requestAnimationFrame(tick);
+  }
+
+  // 지금 위치(tx)를 기준으로 좌우 왕복 범위를 다시 잡는다. 현재 위치에서 끊김 없이 이어지도록 위상을 맞춘다.
+  function setSway(delay) {
+    const W = stage.clientWidth, A = W * 0.45;
+    let lo = Math.max(minTx, tx - A), hi = Math.min(0, tx + A);
+    // 웨이포인트가 화면 밖으로 나가지 않는 범위로 좁힌다 (드래그로 멀리 벗어난 상태면 그대로 둔다)
+    const gx = cur.tgt[0] * scale, lo2 = Math.max(lo, W * 0.18 - gx), hi2 = Math.min(hi, W * 0.82 - gx);
+    if (lo2 <= tx && tx <= hi2) { lo = lo2; hi = hi2; }
+    const c = (lo + hi) / 2, a = (hi - lo) / 2;
+    sway = { c, a, p0: a > 1 ? Math.asin(Math.max(-1, Math.min(1, (tx - c) / a))) : 0, t0: performance.now() + delay };
+  }
+  // 사진을 옮기면서, 보는 방향으로 살짝 기울여 고개를 돌리는 느낌을 준다 (화면 중앙 세로축 기준 회전)
+  function applyPan() {
+    const n = sway && sway.a > 1 ? Math.max(-1, Math.min(1, (tx - sway.c) / sway.a)) : 0;
+    const cx = stage.clientWidth / 2 - tx;
+    sceneEl.style.transform = `translate(${tx}px, ${ty}px) translateX(${cx}px) rotateY(${(-n * SWAY_ROT).toFixed(3)}deg) translateX(${-cx}px)`;
   }
 
   // ---------- 배치: 사진을 무대에 꽉 채우고(cover) 좌우로 둘러볼 수 있게 ----------
   function layout(keepPan) {
     if (!cur) return;
     const W = stage.clientWidth, H = stage.clientHeight;
-    scale = Math.max(W / cur.w, H / cur.h);
+    scale = Math.max(W / cur.w, H / cur.h) * 1.06; // 기울일 때 가장자리가 비지 않게 조금 크게
     const sw = cur.w * scale, sh = cur.h * scale;
     minTx = W - sw;
     // 세로로 남으면 경로가 있는 아래쪽이 보이도록 아래 정렬에 가깝게 둔다
@@ -347,7 +371,8 @@
     if (!keepPan) tx = W / 2 - cur.fx * scale;
     tx = Math.max(minTx, Math.min(0, tx));
     sceneEl.style.width = sw + 'px'; sceneEl.style.height = sh + 'px';
-    sceneEl.style.transform = `translate(${tx}px, ${ty}px)`;
+    setSway(keepPan ? 0 : 900);
+    applyPan();
     const [x, y] = cur.tgt;
     wp.style.left = x * scale + 'px'; wp.style.top = y * scale + 'px';
     const endY = cur.path ? cur.path[cur.path.length - 1][1] : (cur.ring ? cur.ring[1] : y);
@@ -442,10 +467,12 @@
     if (Math.abs(dx) > 6) { drag.moved = true; hintSeen = true; $('hint').style.opacity = 0; }
     if (!drag.moved) return;
     tx = Math.max(minTx, Math.min(0, drag.tx + dx));
-    sceneEl.style.transform = `translate(${tx}px, ${ty}px)`;
+    applyPan();
   });
-  addEventListener('pointerup', () => { drag.on = false; });
-  addEventListener('pointercancel', () => { drag.on = false; });
+  // 손을 떼면 잠깐 쉬었다가 그 자리에서부터 다시 천천히 움직인다
+  const dragEnd = () => { if (drag.on && drag.moved) setSway(2500); drag.on = false; };
+  addEventListener('pointerup', dragEnd);
+  addEventListener('pointercancel', dragEnd);
   addEventListener('resize', () => layout(true));
 
   requestAnimationFrame(tick);
