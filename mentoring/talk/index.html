@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>돌아서 왔습니다</title>
+<meta name="description" content="동국대학교 멘토링 진로 토크: 탈락, 중소기업, 카카오 중고신입 이야기">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --bg: #000;
+    --fg: #f5f5f7;
+    --mute: #86868b;
+    --dim: #3a3a3c;
+    --yellow: #FEE500;
+    --red: #ff453a;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); overflow: hidden; }
+  body {
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    color: var(--fg); word-break: keep-all; -webkit-font-smoothing: antialiased;
+    cursor: default; user-select: none;
+  }
+
+  /* ---------- 1920×1080 무대를 화면에 맞춰 축소/확대 ---------- */
+  .stage {
+    position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px;
+    transform: translate(-50%, -50%) scale(var(--s, 1)); transform-origin: center;
+  }
+  .slide {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 120px 160px; opacity: 0; visibility: hidden;
+    transition: opacity .7s var(--ease), visibility 0s .7s;
+  }
+  .slide.active { opacity: 1; visibility: visible; transition: opacity .7s var(--ease), visibility 0s; }
+
+  /* 등장 애니메이션: 슬라이드가 켜질 때 순서대로 */
+  .a { opacity: 0; transform: translateY(28px); filter: blur(8px);
+       transition: opacity 1s var(--ease), transform 1s var(--ease), filter 1s var(--ease); }
+  .active .a { opacity: 1; transform: none; filter: none; transition-delay: calc(var(--d, 0) * 160ms + 150ms); }
+  /* 빌드(fragment): → 키를 누를 때마다 하나씩 */
+  .f { opacity: 0; transform: translateY(24px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
+  .f.on { opacity: 1; transform: none; }
+
+  /* ---------- 타이포 ---------- */
+  .xxl { font-size: 220px; font-weight: 800; letter-spacing: -0.045em; line-height: 1.02; }
+  .xl  { font-size: 150px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.08; }
+  .l   { font-size: 104px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; }
+  .m   { font-size: 72px;  font-weight: 700; letter-spacing: -0.03em; line-height: 1.25; }
+  .s   { font-size: 44px;  font-weight: 500; letter-spacing: -0.02em; line-height: 1.4; color: var(--mute); }
+  .xs  { font-size: 30px;  font-weight: 500; color: var(--mute); letter-spacing: -0.01em; }
+  .y { color: var(--yellow); }
+  .mute { color: var(--mute); }
+  .gap { margin-top: 40px; }
+  .gap-s { margin-top: 20px; }
+  .grad {
+    background: linear-gradient(100deg, #fff 10%, var(--yellow) 90%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .quote::before { content: "“"; } .quote::after { content: "”"; }
+  .src { font-size: 28px; color: var(--mute); margin-top: 36px; font-weight: 500; }
+
+  /* ---------- 큰 배경 이미지 (GPT 이미지 자리) ---------- */
+  .bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+  .bg img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.06);
+            transition: transform 8s linear; }
+  .active .bg img { transform: scale(1); }
+  .bg::after { content: ""; position: absolute; inset: 0;
+               background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.85) 100%); }
+  .bg.left::after { background: linear-gradient(90deg, rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 45%, rgba(0,0,0,.1) 100%); }
+  .slide > *:not(.bg) { position: relative; z-index: 1; }
+  .missing { border: 3px dashed var(--dim); display: flex; align-items: flex-end; justify-content: flex-end; padding: 24px 32px; }
+  .missing::after { display: none; }
+  .missing span { font: 500 22px ui-monospace, Menlo, monospace; color: #555; }
+
+  /* ---------- 표지 ---------- */
+  #s-title .eyebrow { font-size: 30px; font-weight: 600; color: var(--yellow); letter-spacing: .02em; margin-bottom: 40px; }
+
+  /* ---------- 세 가지 이야기 ---------- */
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 80px; margin-top: 90px; width: 100%; }
+  .three .n { font-size: 140px; font-weight: 800; color: var(--yellow); line-height: 1; letter-spacing: -0.04em; }
+  .three .t { font-size: 60px; font-weight: 700; margin-top: 18px; letter-spacing: -0.03em; }
+  .three .d { font-size: 30px; color: var(--mute); margin-top: 10px; }
+
+  /* ---------- 챕터 표지 ---------- */
+  .chapter .num { font-size: 380px; font-weight: 800; line-height: .9; letter-spacing: -0.06em; color: var(--yellow); }
+  .chapter .t { font-size: 96px; font-weight: 800; letter-spacing: -0.035em; margin-top: 10px; }
+  .chapter .d { font-size: 36px; color: var(--mute); margin-top: 18px; }
+
+  /* ---------- 메일 캡처 ---------- */
+  .shot { border-radius: 22px; background: #fff;
+          box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08); }
+  .shot img { display: block; width: 100%; border-radius: inherit; }
+  .mails { position: relative; width: 1500px; height: 640px; margin-top: 50px; }
+  .mails .shot { position: absolute; width: 860px; }
+  .mails .shot:nth-child(1) { left: 0;    top: 0;     transform: rotate(-3deg); }
+  .mails .shot:nth-child(2) { left: 320px; top: 150px; transform: rotate(1.5deg); }
+  .mails .shot:nth-child(3) { left: 640px; top: 290px; transform: rotate(-1deg); width: 760px; }
+  .mails .shot.f { transform: translateY(60px) rotate(0); }
+  .mails .shot.f.on:nth-child(1) { transform: rotate(-3deg); }
+  .mails .shot.f.on:nth-child(2) { transform: rotate(1.5deg); }
+  .mails .shot.f.on:nth-child(3) { transform: rotate(-1deg); }
+  .stamp { position: absolute; right: -30px; top: -34px; background: var(--yellow); color: #000;
+           font-size: 34px; font-weight: 800; padding: 10px 24px; border-radius: 999px; transform: rotate(6deg);
+           box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+
+  .reject { width: 1340px; position: relative; }
+  .reject .hl { position: absolute; left: 1.5%; right: 2%; top: 86%; height: 12.5%; border-radius: 10px;
+                border: 5px solid var(--red); box-shadow: 0 0 0 9999px rgba(0,0,0,0); opacity: 0;
+                transition: opacity .6s var(--ease) 1.6s, box-shadow .8s var(--ease) 1.6s; }
+  .active .reject .hl { opacity: 1; box-shadow: 0 0 0 9999px rgba(0,0,0,.55); }
+
+  .offer { width: 1400px; position: relative; margin-top: 50px; }
+  .offer .hl { position: absolute; left: 81.5%; width: 17%; top: 36%; height: 20%; border-radius: 10px;
+               border: 5px solid var(--yellow); opacity: 0; transition: opacity .6s var(--ease) 1.4s; }
+  .active .offer .hl { opacity: 1; }
+
+  /* ---------- 질문 리스트 ---------- */
+  .qs { margin-top: 70px; display: grid; gap: 34px; text-align: left; }
+  .qs li { list-style: none; display: flex; align-items: center; gap: 36px; font-size: 64px; font-weight: 700; letter-spacing: -0.03em; }
+  .qs li code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; color: var(--yellow); font-weight: 600; }
+  .qs li .x { width: 76px; height: 76px; border-radius: 50%; border: 5px solid var(--red); color: var(--red);
+              display: grid; place-items: center; font-size: 44px; flex: none; }
+
+  .stack-list { margin-top: 60px; font: 500 34px ui-monospace, "SF Mono", Menlo, monospace; color: var(--dim); line-height: 1.7; max-width: 1300px; }
+
+  /* ---------- 타자 효과 인용 ---------- */
+  .typed { font-size: 66px; font-weight: 600; line-height: 1.45; letter-spacing: -0.025em; max-width: 1450px; text-align: left; }
+  .typed .caret { display: inline-block; width: 6px; height: 1em; background: var(--yellow); vertical-align: -0.12em; margin-left: 6px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .typed mark { background: none; color: var(--yellow); }
+
+  /* ---------- AWS 다이어그램 ---------- */
+  .aws { width: 1500px; margin-top: 30px; }
+  .aws .ln { stroke-dasharray: 600; stroke-dashoffset: 600; transition: stroke-dashoffset 1.2s var(--ease); }
+  .active .aws .ln { stroke-dashoffset: 0; }
+  .aws .nd { opacity: 0; transition: opacity .6s var(--ease); }
+  .active .aws .nd { opacity: 1; }
+  .aws text { font-family: "Pretendard", sans-serif; }
+
+  /* ---------- 배운 것 세 가지 ---------- */
+  .learn { display: grid; grid-template-columns: repeat(3, 1fr); gap: 70px; margin-top: 90px; width: 100%; text-align: left; }
+  .learn .k { font-size: 30px; color: var(--yellow); font-weight: 700; letter-spacing: .04em; }
+  .learn .t { font-size: 66px; font-weight: 800; margin-top: 18px; letter-spacing: -0.035em; line-height: 1.15; }
+  .learn .d { font-size: 32px; color: var(--mute); margin-top: 22px; line-height: 1.45; }
+
+  /* ---------- 2021 vs 2022 ---------- */
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; width: 100%; margin-top: 70px; text-align: left; }
+  .vs > div { padding: 40px 70px; }
+  .vs > div + div { border-left: 2px solid var(--dim); }
+  .vs .yr { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; }
+  .vs .row { margin-top: 44px; }
+  .vs .row small { display: block; font-size: 28px; color: var(--mute); font-weight: 500; }
+  .vs .row b { display: block; font-size: 54px; font-weight: 700; letter-spacing: -0.03em; margin-top: 8px; line-height: 1.25; }
+  .vs .old b { color: #8e8e93; }
+
+  /* ---------- 점 잇기 ---------- */
+  .dots-svg { width: 1600px; margin-top: 70px; overflow: visible; }
+  .dots-svg .path { stroke-dasharray: 1500; stroke-dashoffset: 1500; transition: stroke-dashoffset 2.2s var(--ease) .9s; }
+  .active .dots-svg .path { stroke-dashoffset: 0; }
+  .dots-svg text { font-family: "Pretendard", sans-serif; }
+
+  /* ---------- 후기 사진 슬롯 (가로형) ---------- */
+  .photo { width: 1500px; height: 620px; border-radius: 28px; overflow: hidden; margin-top: 50px; position: relative; background: #111; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* 아직 채우지 않은 문구 (발표 전에 바꾸세요) */
+  .fill { outline: 3px dashed var(--yellow); outline-offset: 10px; border-radius: 6px; }
+
+  /* ---------- 진행 바 / 블랙아웃 ---------- */
+  .bar { position: fixed; left: 0; bottom: 0; height: 3px; background: var(--yellow); width: 0; z-index: 20;
+         transition: width .5s var(--ease); opacity: .7; }
+  .black { position: fixed; inset: 0; background: #000; z-index: 30; display: none; }
+  .black.on { display: block; }
+
+  /* ---------- 발표자 노트 (N 키) ---------- */
+  .notes-panel {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; max-height: 42vh; overflow: auto;
+    background: rgba(28,28,30,.96); border-top: 1px solid #333; padding: 18px 28px 22px;
+    font-size: 17px; line-height: 1.65; color: #e5e5ea; display: none; user-select: text;
+    backdrop-filter: blur(10px);
+  }
+  .notes-panel.on { display: block; }
+  .notes-panel .hd { display: flex; gap: 22px; align-items: baseline; font: 600 14px ui-monospace, Menlo, monospace; color: var(--mute); margin-bottom: 10px; }
+  .notes-panel .hd b { color: var(--yellow); font-size: 18px; }
+  .notes-panel .hd .over { color: var(--red); }
+  .notes-panel em { color: var(--yellow); font-style: normal; }
+  .slide aside.notes { display: none; }
+  .help { position: fixed; right: 18px; bottom: 14px; font: 500 12px ui-monospace, Menlo, monospace; color: #444; z-index: 21; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .a, .f, .slide, .bg img, .aws .ln, .dots-svg .path { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <!-- ===================== 표지 ===================== -->
+  <section class="slide" id="s-title" data-sec="10">
+    <div class="bg" data-src="assets/gen-title.png"></div>
+    <div class="eyebrow a">동국대학교 멘토링 · 진로 토크</div>
+    <h1 class="xxl a">돌아서 <span class="grad">왔습니다</span></h1>
+    <p class="s a gap">카카오 개발자 김성현</p>
+    <aside class="notes">
+      안녕하세요, 카카오에서 개발하고 있는 김성현입니다.<br>
+      오늘은 제가 카카오에 <em>바로</em> 들어온 게 아니라 <em>돌아서</em> 들어온 이야기를 하려고 해요. 6분이면 끝납니다.
+    </aside>
+  </section>
+
+  <!-- ===================== 세 가지 이야기 ===================== -->
+  <section class="slide" data-sec="15">
+    <h2 class="l a">오늘은 세 가지 이야기만<br>하겠습니다.</h2>
+    <div class="three">
+      <div class="a"><div class="n">1</div><div class="t">떨어진 이야기</div><div class="d">2021 · 최종 면접 탈락</div></div>
+      <div class="a"><div class="n">2</div><div class="t">중소기업 이야기</div><div class="d">2022 · AWS, 혼자</div></div>
+      <div class="a"><div class="n">3</div><div class="t">카카오 이야기</div><div class="d">2022 · 중고신입</div></div>
+    </div>
+    <aside class="notes">
+      거창한 건 없고, 딱 세 가지예요. <em>떨어진 이야기, 중소기업 이야기, 카카오 이야기.</em><br>
+      셋 다 제 블로그에 그때그때 적어둔 걸 그대로 가져왔습니다.
+    </aside>
+  </section>
+
+  <!-- ===================== 1. 떨어진 이야기 ===================== -->
+  <section class="slide chapter" data-sec="5">
+    <div class="num a">01</div>
+    <div class="t a">떨어진 이야기</div>
+    <div class="d a">2021년 가을, 카카오 신입 개발자 블라인드 채용</div>
+    <aside class="notes">첫 번째, 떨어진 이야기입니다.</aside>
+  </section>
+
+  <section class="slide" data-sec="25">
+    <h2 class="m a">이땐 <span class="y">행복했다.</span></h2>
+    <div class="mails">
+      <div class="shot f"><img src="assets/2021-1-coding-pass.png" alt="1차 온라인 코딩테스트 합격 메일"></div>
+      <div class="shot f"><img src="assets/2021-2-coding-pass.png" alt="2차 온라인 코딩테스트 합격 메일, 합격 회사 카카오페이"></div>
+      <div class="shot f"><img src="assets/2021-3-hr-pass.png" alt="HR 인터뷰 전형 합격 메일"><span class="stamp">최종 면접만 남음</span></div>
+    </div>
+    <aside class="notes">
+      <em>(→ 누를 때마다 메일이 한 장씩 올라옵니다)</em><br>
+      2021년, 카카오 블라인드 채용에 FE 신입으로 지원했어요. 1지망은 카카오페이.<br>
+      ① 9/11 1차 코테. 5시간에 7문제, 5.5문제 정도 풀었어요. → 합격.<br>
+      ② 9/25 2차 CS + 코테. → 합격, 카카오페이로 배정.<br>
+      ③ 10/28 HR 면접. 면접 보고 식은땀 나서 죽는 줄 알았는데 → 합격.<br>
+      그때 블로그에 "이땐 행복했다"를 세 번이나 썼어요. 행복회로를 아주 열심히 돌렸죠.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <div class="reject a">
+      <div class="shot"><img src="assets/2021-4-reject.png" alt="카카오페이 기술 인터뷰 전형 불합격 메일"></div>
+      <div class="hl"></div>
+    </div>
+    <aside class="notes">
+      그리고 12월, 마지막 기술 면접.<br>
+      <em>(잠깐 멈추고, 빨간 박스가 뜰 때까지 기다리기)</em><br>
+      "기술 인터뷰 전형에서는 함께 하기 어렵게 되었다." 마지막 한 단계에서 떨어졌습니다.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="10">
+    <p class="xl quote a">솔직히 좀<br>많이 울었다.</p>
+    <p class="src a">2021.12.11 · 내 블로그</p>
+    <aside class="notes">
+      그때 블로그에 쓴 문장 그대로예요. 메일 받고 4일 뒤에 썼는데, 솔직히 좀 많이 울었습니다.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="20">
+    <h2 class="m a">최종 면접에서 막힌 질문들</h2>
+    <ul class="qs">
+      <li class="f"><span class="x">✕</span><span>브라우저는 <code>&lt;script&gt;</code>를 어떻게 불러오나요?</span></li>
+      <li class="f"><span class="x">✕</span><span><code>function</code>과 <code>=&gt;</code>는 뭐가 다른가요?</span></li>
+      <li class="f"><span class="x">✕</span><span><code>prototype</code>을 설명해 주세요.</span></li>
+    </ul>
+    <aside class="notes">
+      <em>(→ 하나씩)</em><br>
+      FE로 지원해 놓고 JavaScript 기본기에서 막혔어요.<br>
+      script 로딩은 "HTML 읽다가 만나면 불러옵니다" 수준으로 답했고, async/defer는 몰랐어요.<br>
+      arrow function은 this를 틀리게 설명했고, prototype은 class 문법 있으니까 하고 아예 공부를 안 했어요.<br>
+      사실 팀 프로젝트에서 저는 늘 백엔드만 했거든요.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="20">
+    <p class="xl quote a">이거저거<br>해봤어요!</p>
+    <p class="stack-list a">AVR · Go · Python · Node · Vue · React · Rust · 컴파일러 · OpenGL</p>
+    <aside class="notes">
+      "어떤 경험을 해봤어요?"라는 질문에 제가 할 수 있는 대답이 이거였어요. "이거저거 해봤어요!"<br>
+      아래 보이는 게 제가 해본 것들이에요. 많죠? 그런데 하나도 깊게 말할 수 있는 게 없었어요.<br>
+      블로그에 이렇게 썼어요. <em>"무엇을 해야 할지 몰랐다."</em>
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <p class="l a">냉정해지고 나니,</p>
+    <p class="l a y">떨어질 만했다.</p>
+    <aside class="notes">
+      울고 나서 냉정하게 보니까, 떨어질 만했어요.<br>
+      <em>탈락은 운이 아니라 신호였어요.</em> 내가 뭘 하고 싶은지, 뭘 깊게 아는지 모른다는 신호.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <p class="typed a" id="typed" data-text="작은 기업에라도 취직해 실제 업무를 해 보며, 신입으로 다시 지원해 보는 것을 생각하고 있다."></p>
+    <p class="src a" style="align-self:flex-start;margin-left:85px">2021.12 · 그 글의 마지막 문단</p>
+    <aside class="notes">
+      그 글 마지막 문단이에요. "작은 기업에라도 취직해서 실제 업무를 해 보고, 신입으로 다시 지원해 보겠다."<br>
+      그리고 정말 그렇게 했습니다.
+    </aside>
+  </section>
+
+  <!-- ===================== 2. 중소기업 이야기 ===================== -->
+  <section class="slide chapter" data-sec="5">
+    <div class="num a">02</div>
+    <div class="t a">중소기업 이야기</div>
+    <div class="d a">2022년, 약 1년</div>
+    <aside class="notes">두 번째, 중소기업 이야기.</aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <div class="bg" data-src="assets/gen-fear.png"></div>
+    <p class="xl quote a">중소기업 가면<br>끝 아니에요?</p>
+    <aside class="notes">
+      여러분 이 질문 많이 하시죠. 첫 회사가 중소기업이면 커리어 끝나는 거 아니냐.<br>
+      저도 똑같이 무서웠어요. 그래도 갔습니다.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="20">
+    <p class="xs a">(주)한국이크레딧테크놀로지</p>
+    <p class="l a gap-s">증권사 시스템을 만드는 회사</p>
+    <p class="s a gap">금융·공공 SI · 증권사 18곳과 거래하는 IT 회사</p>
+    <aside class="notes">
+      제가 간 곳은 한국이크레딧테크놀로지. 증권사 금융 시스템을 만들고 운영하는 회사예요.<br>
+      <em>[채우기: 입사 시기, 팀 규모, 맡았던 서비스 한 줄]</em>
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="25">
+    <h2 class="l a">AWS, <span class="y">혼자.</span></h2>
+    <svg class="aws a" viewBox="0 0 1500 520" aria-label="혼자 구축한 AWS 구성도 예시">
+      <!-- VPC 영역 -->
+      <rect class="nd" x="330" y="40" width="1140" height="450" rx="28" fill="none" stroke="#3a3a3c" stroke-width="3" stroke-dasharray="12 10" style="transition-delay:.4s"/>
+      <text class="nd" x="360" y="84" fill="#86868b" font-size="26" font-weight="600" style="transition-delay:.4s">VPC · ap-northeast-2</text>
+      <!-- 선 -->
+      <path class="ln" d="M190 265 H 400" stroke="#FEE500" stroke-width="4" fill="none" style="transition-delay:.9s"/>
+      <path class="ln" d="M600 265 H 700" stroke="#FEE500" stroke-width="4" fill="none" style="transition-delay:1.2s"/>
+      <path class="ln" d="M900 265 C 950 265 950 165 1010 165 M900 265 C 950 265 950 365 1010 365" stroke="#FEE500" stroke-width="4" fill="none" style="transition-delay:1.5s"/>
+      <path class="ln" d="M1190 165 C 1240 165 1240 265 1290 265 M1190 365 C 1240 365 1240 265 1290 265" stroke="#FEE500" stroke-width="4" fill="none" style="transition-delay:1.8s"/>
+      <!-- 노드 -->
+      <g class="nd" style="transition-delay:.2s"><circle cx="110" cy="265" r="80" fill="#1c1c1e" stroke="#f5f5f7" stroke-width="3"/><text x="110" y="276" fill="#f5f5f7" font-size="32" font-weight="700" text-anchor="middle">사용자</text></g>
+      <g class="nd" style="transition-delay:.9s"><rect x="400" y="205" width="200" height="120" rx="20" fill="#1c1c1e" stroke="#f5f5f7" stroke-width="3"/><text x="500" y="260" fill="#f5f5f7" font-size="30" font-weight="700" text-anchor="middle">Route 53</text><text x="500" y="296" fill="#86868b" font-size="22" text-anchor="middle">DNS</text></g>
+      <g class="nd" style="transition-delay:1.2s"><rect x="700" y="205" width="200" height="120" rx="20" fill="#1c1c1e" stroke="#f5f5f7" stroke-width="3"/><text x="800" y="260" fill="#f5f5f7" font-size="30" font-weight="700" text-anchor="middle">ALB</text><text x="800" y="296" fill="#86868b" font-size="22" text-anchor="middle">Load Balancer</text></g>
+      <g class="nd" style="transition-delay:1.5s"><rect x="1010" y="110" width="180" height="110" rx="20" fill="#1c1c1e" stroke="#f5f5f7" stroke-width="3"/><text x="1100" y="160" fill="#f5f5f7" font-size="30" font-weight="700" text-anchor="middle">EC2</text><text x="1100" y="195" fill="#86868b" font-size="22" text-anchor="middle">App</text></g>
+      <g class="nd" style="transition-delay:1.6s"><rect x="1010" y="310" width="180" height="110" rx="20" fill="#1c1c1e" stroke="#f5f5f7" stroke-width="3"/><text x="1100" y="360" fill="#f5f5f7" font-size="30" font-weight="700" text-anchor="middle">EC2</text><text x="1100" y="395" fill="#86868b" font-size="22" text-anchor="middle">App</text></g>
+      <g class="nd" style="transition-delay:1.8s"><rect x="1290" y="205" width="160" height="120" rx="20" fill="#1c1c1e" stroke="#f5f5f7" stroke-width="3"/><text x="1370" y="260" fill="#f5f5f7" font-size="30" font-weight="700" text-anchor="middle">RDS</text><text x="1370" y="296" fill="#86868b" font-size="22" text-anchor="middle">DB</text></g>
+      <!-- 담당자 표시 -->
+      <g class="nd" style="transition-delay:2.6s">
+        <rect x="560" y="430" width="420" height="64" rx="32" fill="#FEE500"/>
+        <text x="770" y="473" fill="#000" font-size="30" font-weight="800" text-anchor="middle">설계 · 구축 · 운영 = 나</text>
+      </g>
+    </svg>
+    <aside class="notes">
+      그 회사에서 AWS 인프라를 제가 혼자 구축했어요. 물어볼 선배도, 인프라 팀도 없었어요.<br>
+      <em>[채우기: 실제로 만든 구성. 그림은 예시라 실제 구성에 맞게 노드를 바꾸세요]</em><br>
+      <em>[썰 하나: 처음 장애 났을 때 / 요금 폭탄 / 새벽 배포 같은 에피소드]</em>
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="20">
+    <div class="bg left" data-src="assets/gen-night.png"></div>
+    <div style="align-self:flex-start;text-align:left">
+      <p class="xxl a">맨땅에<br><span class="y">헤딩.</span></p>
+      <p class="s a gap">ChatGPT도 Copilot도 없던 시절.<br>공식 문서, 구글링, 그리고 새벽.</p>
+    </div>
+    <aside class="notes">
+      지금이면 AI한테 물어보면 되죠. 그때는 그런 게 없었어요.<br>
+      AWS 공식 문서 읽고, 구글링하고, 콘솔에서 버튼 하나 누를 때마다 심장이 쿵 했어요.<br>
+      <em>[채우기: 가장 오래 붙잡고 있었던 문제 하나]</em>
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="25">
+    <h2 class="m a">그래서 얻은 것 세 가지</h2>
+    <div class="learn">
+      <div class="f"><div class="k">01</div><div class="t">전체 그림</div><div class="d">요청이 들어와서 DB에 닿기까지, 처음부터 끝까지 다 내 손을 거쳤다.</div></div>
+      <div class="f"><div class="k">02</div><div class="t">책임감</div><div class="d">장애가 나면 내 이름이 불린다. 그래서 대충 만들 수 없었다.</div></div>
+      <div class="f"><div class="k">03</div><div class="t">말할 거리</div><div class="d">"이거저거 해봤어요"가 아니라 "이걸 만들고 운영해 봤어요".</div></div>
+    </div>
+    <aside class="notes">
+      <em>(→ 하나씩)</em><br>
+      하나, 전체 그림. 큰 회사였으면 저는 아마 시스템의 한 조각만 봤을 거예요.<br>
+      둘, 책임감. 혼자니까 장애가 나면 다 제 거예요.<br>
+      셋, 말할 거리. 1년 전 면접에서 제가 못 했던 대답이 생겼어요.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <p class="l a">작은 회사는<br><span class="mute">작은 일</span>을 주지 않는다.</p>
+    <p class="l a gap y">전부를 준다.</p>
+    <aside class="notes">
+      그래서 이렇게 말하고 싶어요. 작은 회사는 작은 일을 주지 않아요. <em>전부를 줍니다.</em><br>
+      감당할 각오만 있으면 그게 제일 빠른 성장이에요.
+    </aside>
+  </section>
+
+  <!-- ===================== 3. 카카오 이야기 ===================== -->
+  <section class="slide chapter" data-sec="5">
+    <div class="num a">03</div>
+    <div class="t a">카카오 이야기</div>
+    <div class="d a">2022년 가을, 다시 블라인드 채용</div>
+    <aside class="notes">세 번째, 카카오 이야기.</aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <div class="shot a" style="width:1300px;background:#FEE500"><img src="assets/2022-blind-banner.png" alt="2023 카카오 신입 개발자 블라인드 채용 배너"></div>
+    <p class="m a gap">1년 뒤, 같은 알림이 다시 왔다.</p>
+    <aside class="notes">
+      1년 전에 설정해 둔 채용 알림이 다시 왔어요. 블로그엔 "우연이었다"라고 썼는데, 사실 그 1년을 이 날을 위해 보냈죠.<br>
+      이번엔 경력직이 아니라 <em>신입</em>으로 다시 지원했어요. 이른바 중고신입.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="25">
+    <h2 class="m a">같은 사람, 다른 면접</h2>
+    <div class="vs">
+      <div class="old a">
+        <div class="yr mute">2021</div>
+        <div class="row"><small>내가 뭘 하고 싶은지</small><b>몰랐다</b></div>
+        <div class="row"><small>경험을 물으면</small><b>“이거저거 해봤어요”</b></div>
+      </div>
+      <div class="a">
+        <div class="yr y">2022</div>
+        <div class="row"><small>내가 뭘 하고 싶은지</small><b>백엔드·인프라라는 걸<br>면접 5분 만에 들켰다</b></div>
+        <div class="row"><small>경험을 물으면</small><b>“직접 만들고 운영해 봤어요”</b></div>
+      </div>
+    </div>
+    <aside class="notes">
+      1차 면접에선 도커, 쿠버네티스 같은 직무 질문이 나왔어요. 1년 동안 실제로 만져본 것들이라 말할 게 있었어요.<br>
+      2차 면접에선 제가 백엔드를 더 좋아한다는 걸 5분 만에 들켰어요. 그래서 "안 좋아하는 일을 맡기면 어떻게 할 거냐"는 질문을 받았죠.<br>
+      1년 전엔 뭘 하고 싶은지도 몰랐는데, <em>이번엔 너무 티가 나서 문제</em>였던 거예요.<br>
+      <em>[확인: 면접에서 AWS 구축 경험을 실제로 얘기했는지]</em>
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <p class="xl a">입사 <span class="y">확정.</span></p>
+    <div class="offer a">
+      <div class="shot"><img src="assets/2022-offer.png" alt="카카오 입사 확정 안내 화면"></div>
+      <div class="hl"></div>
+    </div>
+    <p class="xs a gap">2022.11.24 · 탈락 메일 이후 약 1년</p>
+    <aside class="notes">
+      2022년 11월 24일. 발표가 사흘 늦어져서 그동안 웃길 정도로 벌벌 떨었어요.<br>
+      그리고 이 화면을 봤습니다. "카카오 입사 확정을 진심으로 축하드립니다." 탈락 메일 받고 거의 딱 1년 만이에요.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="25">
+    <h2 class="l a"><span class="fill">들어와 보니,</span></h2>
+    <div class="photo a" data-src="assets/gen-kakao-life.png"></div>
+    <aside class="notes">
+      <em>[채우기: 카카오 입사 후기. 헤드라인 한 줄 + 사진 한 장]</em><br>
+      예) 중고신입이라 좋았던 점 / 동기들 사이에서 1년 실무 경험이 어떻게 쓰였는지 / 지금 하는 일<br>
+      사진은 직접 찍은 사진이 제일 좋고, 없으면 IMAGE_PROMPTS.md의 gen-kakao-life 프롬프트로 뽑으세요.
+    </aside>
+  </section>
+
+  <!-- ===================== One more thing ===================== -->
+  <section class="slide" data-sec="5">
+    <p class="l a" style="font-weight:600">One more thing…</p>
+    <aside class="notes">마지막으로 하나만 더.</aside>
+  </section>
+
+  <section class="slide" data-sec="25">
+    <h2 class="l a">점은 나중에 이어집니다.</h2>
+    <svg class="dots-svg" viewBox="0 0 1600 360" aria-label="2021 탈락, 2022 중소기업, 2022 카카오를 잇는 선">
+      <path class="path" d="M200 180 C 480 40, 560 320, 800 180 S 1150 40, 1400 180" stroke="#FEE500" stroke-width="5" fill="none"/>
+      <g class="a" style="--d:1"><circle cx="200" cy="180" r="26" fill="#f5f5f7"/><text x="200" y="270" fill="#f5f5f7" font-size="40" font-weight="700" text-anchor="middle">탈락</text><text x="200" y="316" fill="#86868b" font-size="28" text-anchor="middle">2021.12</text></g>
+      <g class="a" style="--d:2"><circle cx="800" cy="180" r="26" fill="#f5f5f7"/><text x="800" y="270" fill="#f5f5f7" font-size="40" font-weight="700" text-anchor="middle">중소기업 · AWS</text><text x="800" y="316" fill="#86868b" font-size="28" text-anchor="middle">2022</text></g>
+      <g class="a" style="--d:3"><circle cx="1400" cy="180" r="26" fill="#FEE500"/><text x="1400" y="270" fill="#FEE500" font-size="40" font-weight="700" text-anchor="middle">카카오</text><text x="1400" y="316" fill="#86868b" font-size="28" text-anchor="middle">2022.12</text></g>
+    </svg>
+    <p class="xs a" style="--d:4;margin-top:40px;font-style:italic">You can't connect the dots looking forward. — Steve Jobs</p>
+    <aside class="notes">
+      스티브 잡스가 그랬죠. 점은 앞을 보면서는 이을 수 없고, 뒤돌아봐야 이어진다고.<br>
+      탈락이 없었으면 중소기업에 안 갔을 거고, 중소기업에서 혼자 AWS를 안 만졌으면 카카오 면접에서 할 말이 없었을 거예요.<br>
+      그땐 다 실패 같았는데, <em>지금 보면 하나의 선</em>이에요.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="15">
+    <div class="bg" data-src="assets/gen-door.png"></div>
+    <p class="xl a">첫 회사가<br><span class="y">마지막 회사</span>는 아닙니다.</p>
+    <aside class="notes">
+      그러니까 첫 회사 이름에 너무 겁먹지 마세요. 첫 회사가 마지막 회사가 아니에요.<br>
+      <em>어디서든 "이걸 내가 했다"고 말할 수 있는 1년</em>을 보내면, 문은 다시 열립니다.
+    </aside>
+  </section>
+
+  <section class="slide" data-sec="10">
+    <p class="xxl a">감사합니다</p>
+    <p class="s a gap">velog.io/@egoavara</p>
+    <aside class="notes">
+      들어주셔서 감사합니다. 오늘 이야기한 탈락 글, 합격 글 둘 다 블로그에 있어요. 질문 편하게 해 주세요.
+    </aside>
+  </section>
+
+</div>
+
+<div class="bar" id="bar"></div>
+<div class="black" id="black"></div>
+<div class="notes-panel" id="notes"></div>
+<div class="help">← → 이동 · N 노트 · F 전체화면 · B 블랙</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var bar = document.getElementById('bar');
+  var notes = document.getElementById('notes');
+  var black = document.getElementById('black');
+  var cur = 0, startAt = 0, tickTimer = 0, typeTimer = 0;
+
+  // 화면 크기에 맞게 1920×1080 무대 축소/확대
+  function fit() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    stage.style.setProperty('--s', s);
+  }
+  window.addEventListener('resize', fit); fit();
+
+  // 등장 순서 지정 (style에 --d가 이미 있으면 유지)
+  slides.forEach(function (sl) {
+    sl.querySelectorAll('.a').forEach(function (el, i) {
+      if (!el.style.getPropertyValue('--d')) el.style.setProperty('--d', i);
+    });
+  });
+
+  // 이미지 슬롯: 파일이 있으면 표시, 없으면 파일명이 보이는 점선 자리 표시
+  document.querySelectorAll('[data-src]').forEach(function (el) {
+    var img = new Image();
+    img.alt = '';
+    img.onload = function () { el.appendChild(img); };
+    img.onerror = function () {
+      el.classList.add('missing');
+      el.innerHTML = '<span>' + el.dataset.src + '</span>';
+    };
+    img.src = el.dataset.src;
+  });
+
+  // 목표 시간 누적 (노트 패널에 표시)
+  var targetAt = [], acc = 0;
+  slides.forEach(function (sl) { targetAt.push(acc); acc += +(sl.dataset.sec || 0); });
+  var total = acc;
+  function mmss(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2); }
+
+  function renderNotes() {
+    var sl = slides[cur], n = sl.querySelector('aside.notes');
+    var el = startAt ? (Date.now() - startAt) / 1000 : 0;
+    var over = el > targetAt[cur] + (+sl.dataset.sec || 0) + 10;
+    notes.innerHTML =
+      '<div class="hd"><b>' + (cur + 1) + ' / ' + slides.length + '</b>' +
+      '<span class="' + (over ? 'over' : '') + '">경과 ' + mmss(el) + '</span>' +
+      '<span>이 장 목표 ' + (sl.dataset.sec || 0) + '초 · 여기까지 ' + mmss(targetAt[cur] + (+sl.dataset.sec || 0)) + ' / 전체 ' + mmss(total) + '</span></div>' +
+      (n ? n.innerHTML : '');
+  }
+
+  // 타자 효과
+  function typeIn(el) {
+    clearInterval(typeTimer);
+    var text = el.dataset.text, i = 0;
+    el.innerHTML = '<span class="caret"></span>';
+    setTimeout(function () {
+      typeTimer = setInterval(function () {
+        i++;
+        el.innerHTML = text.slice(0, i).replace('작은 기업', '<mark>작은 기업</mark>') + '<span class="caret"></span>';
+        if (i >= text.length) clearInterval(typeTimer);
+      }, 55);
+    }, 700);
+  }
+
+  function frags(sl) { return Array.prototype.slice.call(sl.querySelectorAll('.f')); }
+
+  function go(i, showAll) {
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    slides[cur].classList.remove('active');
+    cur = i;
+    var sl = slides[cur];
+    frags(sl).forEach(function (f) { f.classList.toggle('on', !!showAll); });
+    // 애니메이션 재생을 위해 한 프레임 뒤에 active
+    requestAnimationFrame(function () { sl.classList.add('active'); });
+    var t = sl.querySelector('#typed'); if (t) typeIn(t);
+    bar.style.width = (cur / (slides.length - 1) * 100) + '%';
+    history.replaceState(null, '', '#' + (cur + 1));
+    renderNotes();
+  }
+
+  function next() {
+    if (!startAt) { startAt = Date.now(); tickTimer = setInterval(renderNotes, 1000); }
+    var hidden = frags(slides[cur]).filter(function (f) { return !f.classList.contains('on'); });
+    if (hidden.length) { hidden[0].classList.add('on'); return; }
+    if (cur < slides.length - 1) go(cur + 1);
+  }
+  function prev() {
+    var shown = frags(slides[cur]).filter(function (f) { return f.classList.contains('on'); });
+    if (shown.length) { shown[shown.length - 1].classList.remove('on'); return; }
+    if (cur > 0) go(cur - 1, true);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].indexOf(k) > -1) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].indexOf(k) > -1) { e.preventDefault(); prev(); }
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(slides.length - 1, true);
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); renderNotes(); }
+    else if (k === 'b' || k === 'B' || k === '.') black.classList.toggle('on');
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    }
+    else if (k === 't' || k === 'T') { startAt = Date.now(); renderNotes(); }
+  });
+
+  // 클릭: 왼쪽 1/4은 이전, 나머지는 다음
+  document.addEventListener('click', function (e) {
+    if (notes.contains(e.target)) return;
+    if (e.clientX < window.innerWidth / 4) prev(); else next();
+  });
+  // 스와이프
+  var sx = null;
+  document.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    if (sx === null) return;
+    var dx = e.changedTouches[0].clientX - sx; sx = null;
+    if (Math.abs(dx) > 40) (dx < 0 ? next : prev)();
+  });
+
+  var h = parseInt(location.hash.slice(1), 10);
+  go(isNaN(h) ? 0 : h - 1, true);
+})();
+</script>
+</body>
+</html>
