@@ -113,6 +113,7 @@
   .inst h2 { font-size: 19px; font-weight: 800; letter-spacing: -.03em; line-height: 1.25; }
   .inst p { color: var(--mute); font-size: 13px; margin-top: 3px; }
   .btns { display: grid; grid-template-columns: 64px 1fr; gap: 10px; margin-top: 12px; }
+  .btns:has(.next[hidden]) { grid-template-columns: 1fr; }
   .btn { height: 52px; border-radius: 14px; font-weight: 800; font-size: 17px; }
   .btn.back { background: rgba(255,255,255,.08); border: 1px solid var(--line); }
   .btn.back:disabled { opacity: .35; }
@@ -468,7 +469,9 @@
     $('title').textContent = cur.title; $('sub').textContent = cur.sub;
     $('pips').innerHTML = route.map((_, k) => `<span class="${k <= i ? 'on' : ''}"></span>`).join('');
     $('back').disabled = i === 0;
-    $('next').innerHTML = last ? '방문 안내 보기' : `전진 <small>${i + 1}/${route.length - 1}</small> ▶`;
+    $('back').textContent = last ? '◀ 이전 지점' : '◀';
+    $('next').hidden = last; // 도착하면 더 갈 곳이 없으므로 버튼을 숨긴다
+    $('next').innerHTML = `전진 <small>${i + 1}/${route.length - 1}</small> ▶`;
     $('done').hidden = !cur.goal;
     history.replaceState(null, '', `#${routeKey}/${i + 1}`);
     const nx = SCENES[route[i + 1]]; if (nx) new Image().src = 'assets/' + nx.img; // 다음 사진 미리 받기
@@ -479,7 +482,7 @@
     if (busy) return;
     const n = idx + dir;
     if (n < 0) return;
-    if (n >= route.length) { location.href = '../'; return; }
+    if (n >= route.length) return;
     busy = true; hintSeen = true;
     if (dir > 0 && cur.trans === 'elev') {
       const lift = $('lift'), fl = $('floor');
