@@ -87,7 +87,7 @@
 
   /* HUD */
   .hud { position: absolute; z-index: 5; pointer-events: none; }
-  .hud-tl { left: 12px; top: calc(12px + env(safe-area-inset-top)); right: 122px; }
+  .hud-tl { left: 12px; top: calc(12px + env(safe-area-inset-top)); right: 12px; }
   .obj { display: inline-grid; gap: 2px; padding: 8px 12px; border-radius: 12px; background: rgba(11,12,16,.72); border: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); max-width: 100%; }
   .obj small { color: var(--y); font-size: 10px; }
   .obj b { font-size: 14px; letter-spacing: -.02em; }
@@ -95,16 +95,6 @@
   .pips { display: flex; gap: 4px; margin-top: 8px; max-width: 220px; }
   .pips span { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.28); }
   .pips span.on { background: var(--y); box-shadow: 0 0 8px rgba(var(--y-rgb), .8); }
-  .hud-tr { right: 12px; top: calc(12px + env(safe-area-inset-top)); width: 100px; }
-  .map { width: 100px; height: 100px; border-radius: 50%; background: rgba(11,12,16,.74); border: 1.5px solid rgba(var(--y-rgb), .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); overflow: hidden; }
-  .map svg { width: 100%; height: 100%; display: block; }
-  .map .all { fill: none; stroke: rgba(255,255,255,.22); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-  .map .todo { fill: none; stroke: rgba(var(--y-rgb), .4); stroke-width: 3; stroke-dasharray: 1 6; stroke-linecap: round; }
-  .map .done { fill: none; stroke: var(--y); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-  .map .me { fill: #fff; stroke: var(--y); stroke-width: 2; }
-  .map .pulse { fill: none; stroke: #fff; stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 1.6s ease-out infinite; }
-  .map .end { fill: #7CFFB2; }
-  .map-cap { text-align: center; color: var(--mute); font-size: 9px; margin-top: 4px; text-shadow: 0 1px 3px #000; }
   .hint { left: 50%; bottom: 52px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: rgba(11,12,16,.7); color: var(--fg); font-size: 12px; white-space: nowrap; transition: opacity .5s; }
   .quit { position: absolute; z-index: 6; left: 12px; bottom: 12px; padding: 6px 12px; border-radius: 999px; background: rgba(11,12,16,.7); border: 1px solid var(--line); color: var(--mute); font-size: 12px; }
   .done-banner { left: 0; right: 0; top: 34%; text-align: center; animation: pop .8s var(--ease) both; }
@@ -139,7 +129,7 @@
   .lift .fl small { font-size: 12px; color: var(--mute); }
 
   @media (prefers-reduced-motion: reduce) {
-    .wp, .wp .gem, .ring, .map .pulse { animation: none; }
+    .wp, .wp .gem, .ring { animation: none; }
     .cam, .cam.in { transition: opacity .2s; }
     .cam.out, .cam.pre { transform: none; filter: none; }
   }
@@ -190,10 +180,6 @@
       </div>
       <div class="pips" id="pips"></div>
     </div>
-    <div class="hud hud-tr">
-      <div class="map"><svg id="map" viewBox="0 0 100 100" aria-hidden="true"></svg></div>
-      <p class="map-cap">약도 (방위·축척 아님)</p>
-    </div>
     <div class="hud done-banner" id="done" hidden><b>🎉 도착!</b></div>
     <div class="hud hint" id="hint">↔ 드래그해서 둘러보기</div>
     <button class="quit" id="quit">출발 지점 다시 고르기</button>
@@ -216,36 +202,36 @@
 (() => {
   // ---------- 경로 데이터 ----------
   // path: 사진 픽셀 좌표 [x, y, 바닥 경로 폭]. 화면 아래(가까움) → 위(멀리) 순서.
-  // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표. map: 약도 좌표(0~100).
+  // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표.
   const SCENES = {
-    south: { img: 's-south.webp', w: 1920, h: 1440, fx: 840, map: [88, 64], place: '판교역 · 신분당선 개찰구 앞',
+    south: { img: 's-south.webp', w: 1920, h: 1440, fx: 840, place: '판교역 · 신분당선 개찰구 앞',
       path: [[1010, 1440, 440], [900, 1220, 190], [815, 1090, 80], [785, 1040, 40]], tgt: [782, 950], dist: 30, icon: 'up',
       title: '정면 통로로 직진', sub: '천장 "교통카드 충전" 간판 아래로, 멀리 KAKAO AGIT 문이 보여요' },
-    north: { img: 's-north.webp', w: 1920, h: 1440, fx: 1030, map: [88, 92], place: '판교역 · 경강선 개찰구 앞',
+    north: { img: 's-north.webp', w: 1920, h: 1440, fx: 1030, place: '판교역 · 경강선 개찰구 앞',
       path: [[960, 1440, 560], [1000, 1150, 250], [1035, 1000, 90], [1042, 950, 50]], tgt: [1042, 860], dist: 45, icon: 'up',
       title: '정면 발권기까지 직진', sub: '승차권 발권기 바로 옆 통로에 KAKAO AGIT 문이 있어요' },
-    door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, map: [64, 78], place: '판교역 · 경강선 역무실 옆',
+    door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, place: '판교역 · 경강선 역무실 옆',
       path: [[620, 1920, 520], [575, 1560, 300], [562, 1260, 180], [575, 1150, 130]], tgt: [630, 1010], dist: 8, icon: 'door',
       title: 'KAKAO AGIT 문으로 들어가기', sub: '오른쪽은 역무실, 바닥의 노란 점자블록을 따라가세요' },
-    esc: { img: 's-esc.webp', w: 1440, h: 1920, fx: 800, map: [58, 72], place: '판교역 → 아지트 연결 통로',
+    esc: { img: 's-esc.webp', w: 1440, h: 1920, fx: 800, place: '판교역 → 아지트 연결 통로',
       path: [[850, 1900, 250], [880, 1500, 170], [880, 1150, 110], [850, 850, 55]], tgt: [850, 790], icon: 'esc',
       title: '에스컬레이터 타고 올라가기', sub: '문 안쪽, 오른쪽 에스컬레이터가 올라가는 방향이에요' },
-    adoor: { img: 'a-door.webp', w: 1920, h: 1440, fx: 660, map: [50, 62], place: '아지트 B1 · 지하철 연결 입구',
+    adoor: { img: 'a-door.webp', w: 1920, h: 1440, fx: 660, place: '아지트 B1 · 지하철 연결 입구',
       path: [[960, 1440, 520], [760, 1280, 280], [610, 1150, 150], [565, 1090, 100]], tgt: [560, 930], dist: 5, icon: 'door',
       title: 'KAKAO AGIT 유리문 통과', sub: '문 너머로 커다란 LED 전광판 복도가 보여요' },
-    c1: { img: 'a-c1.webp', w: 1920, h: 1440, fx: 800, map: [43, 58], place: '아지트 B1 · 지하철 통로',
+    c1: { img: 'a-c1.webp', w: 1920, h: 1440, fx: 800, place: '아지트 B1 · 지하철 통로',
       path: [[520, 1440, 440], [610, 1120, 220], [675, 935, 100], [820, 915, 50], [985, 912, 40]], tgt: [935, 640], dist: 15, icon: 'right',
       title: '복도 끝에서 우회전', sub: '천장 안내판의 "KAKAO →" 방향이에요. 오른쪽 벽은 LED 전광판' },
-    c2: { img: 'a-c2.webp', w: 1920, h: 1440, fx: 940, map: [40, 46], place: '아지트 B1 · 엘리베이터 가는 길',
+    c2: { img: 'a-c2.webp', w: 1920, h: 1440, fx: 940, place: '아지트 B1 · 엘리베이터 가는 길',
       path: [[760, 1440, 560], [880, 1080, 260], [945, 860, 110], [962, 775, 60]], tgt: [962, 690], dist: 25, icon: 'elev', trans: 'elev',
       title: '정면 엘리베이터 타고 3층으로', sub: '복도 끝 B1 엘리베이터를 타고 3층에서 내리면 바로 도착이에요' },
-    f1: { img: 'a-1f.webp', w: 1920, h: 1440, fx: 960, map: [8, 20], place: '아지트 1층 · 아트리움',
+    f1: { img: 'a-1f.webp', w: 1920, h: 1440, fx: 960, place: '아지트 1층 · 아트리움',
       path: [[985, 1440, 300], [975, 1300, 200], [965, 1000, 150], [955, 620, 70]], tgt: [950, 470], icon: 'esc',
       title: '에스컬레이터 타고 3층까지', sub: '오른쪽이 올라가는 방향. 안내판 "↑3 KAKAO WELCOME DESK"를 확인하세요' },
-    f3: { img: 'a-3f-esc.webp', w: 1920, h: 1440, fx: 780, map: [24, 22], place: '아지트 3층 · 에스컬레이터 앞',
+    f3: { img: 'a-3f-esc.webp', w: 1920, h: 1440, fx: 780, place: '아지트 3층 · 에스컬레이터 앞',
       path: [[1150, 1440, 560], [880, 1200, 300], [650, 1010, 140], [545, 935, 80]], tgt: [540, 790], dist: 20, icon: 'left',
       title: '왼쪽 통로로 들어가기', sub: '크리스마스 트리가 보이는 쪽이 웰컴데스크예요' },
-    goal: { img: 'a-goal.webp', w: 1920, h: 1440, fx: 900, map: [40, 20], place: '아지트 3층 · 엘리베이터 앞',
+    goal: { img: 'a-goal.webp', w: 1920, h: 1440, fx: 900, place: '아지트 3층 · 엘리베이터 앞',
       tgt: [900, 1090], ring: [900, 1160, 260], icon: 'flag', goal: true,
       title: '도착! 여기서 만나요', sub: '웰컴데스크와 라이언 트리가 보이면 맞게 온 거예요' },
   };
@@ -371,16 +357,6 @@
   }
   let hintSeen = false;
 
-  function drawMap() {
-    const line = (ids) => ids.map((id) => SCENES[id].map.join(',')).join(' ');
-    const me = cur.map;
-    let h = Object.values(ROUTES).map((r) => `<polyline class="all" points="${line(r)}"/>`).join('');
-    h += `<polyline class="todo" points="${line(route.slice(idx))}"/><polyline class="done" points="${line(route.slice(0, idx + 1))}"/>`;
-    h += `<circle class="end" cx="${SCENES.goal.map[0]}" cy="${SCENES.goal.map[1]}" r="4.5"/>`;
-    h += `<circle class="pulse" cx="${me[0]}" cy="${me[1]}" r="9"/><circle class="me" cx="${me[0]}" cy="${me[1]}" r="4.5"/>`;
-    $('map').innerHTML = h;
-  }
-
   async function show(i) {
     idx = i; cur = SCENES[route[i]];
     const src = 'assets/' + cur.img;
@@ -401,7 +377,6 @@
     $('back').disabled = i === 0;
     $('next').innerHTML = last ? '방문 안내 보기' : `전진 <small>${i + 1}/${route.length - 1}</small> ▶`;
     $('done').hidden = !cur.goal;
-    drawMap();
     history.replaceState(null, '', `#${routeKey}/${i + 1}`);
     const nx = SCENES[route[i + 1]]; if (nx) new Image().src = 'assets/' + nx.img; // 다음 사진 미리 받기
   }
