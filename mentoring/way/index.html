@@ -207,6 +207,8 @@
 (() => {
   // ---------- 경로 데이터 ----------
   // path: 사진 픽셀 좌표 [x, y, 바닥 경로 폭]. 화면 아래(가까움) → 위(멀리) 순서.
+  // hy, gw: 경로가 옆으로 꺾이는 장면은 바닥 평면 모델로 그린다. hy = 사진 속 수평선(카메라 눈높이)의 y,
+  //         gw = 띠의 실제 폭(카메라 높이 단위). 이때 path 는 꺾이는 꼭짓점 [x, y] 만 적는다.
   // turn: 경로가 꺾이는 곳에 띄울 방향 표시 { at: 위치, text: 문구 }.
   // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표.
   const SCENES = {
@@ -214,8 +216,8 @@
       path: [[1010, 1440, 440], [900, 1220, 190], [815, 1090, 80], [785, 1040, 40]], tgt: [782, 950], dist: 30, icon: 'up',
       title: '정면 통로로 직진', sub: '천장 "교통카드 충전" 간판 아래로, 멀리 KAKAO AGIT 문이 보여요' },
     north: { img: 's-north.webp', w: 1920, h: 1440, fx: 960, place: '판교역 · 경강선 개찰구 앞',
-      path: [[960, 1440, 560], [1000, 1150, 250], [1034, 1020, 100], [1026, 978, 50], [960, 966, 36], [870, 962, 30]], tgt: [1040, 870], dist: 45, icon: 'left',
-      turn: { at: [905, 915], text: '◀ 여기서 왼쪽' },
+      hy: 868, gw: 0.6, path: [[960, 1440], [1042, 908], [925, 908]], tgt: [1042, 845], dist: 45, icon: 'left',
+      turn: { at: [918, 905], text: '◀ 벽 앞에서 왼쪽' },
       title: '발권기 앞까지 직진 후 왼쪽', sub: '발권기 앞에 도착해서 왼쪽을 바라보면 KAKAO AGIT 문이 보여요' },
     door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, place: '판교역 · 경강선 역무실 옆',
       path: [[620, 1920, 520], [575, 1560, 300], [562, 1260, 180], [575, 1150, 130]], tgt: [630, 1010], dist: 8, icon: 'door',
@@ -227,7 +229,7 @@
       path: [[960, 1440, 520], [760, 1280, 280], [610, 1150, 150], [565, 1090, 100]], tgt: [560, 930], dist: 5, icon: 'door',
       title: 'KAKAO AGIT 유리문 통과', sub: '문 너머로 커다란 LED 전광판 복도가 보여요' },
     c1: { img: 'a-c1.webp', w: 1920, h: 1440, fx: 800, place: '아지트 B1 · 지하철 통로',
-      path: [[520, 1440, 440], [610, 1120, 220], [675, 935, 100], [820, 915, 50], [985, 912, 40]], tgt: [935, 640], dist: 15, icon: 'right',
+      hy: 764, gw: 0.6, path: [[520, 1440], [678, 926], [985, 926]], tgt: [935, 640], dist: 15, icon: 'right',
       title: '복도 끝에서 우회전', sub: '천장 안내판의 "KAKAO →" 방향이에요. 오른쪽 벽은 LED 전광판' },
     c2: { img: 'a-c2.webp', w: 1920, h: 1440, fx: 940, place: '아지트 B1 · 엘리베이터 가는 길',
       path: [[760, 1440, 560], [880, 1080, 260], [945, 860, 110], [962, 775, 60]], tgt: [962, 690], dist: 25, icon: 'elev', trans: 'elev',
@@ -264,59 +266,120 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   let route = null, routeKey = '', idx = 0, cur = null, busy = false;
-  let scale = 1, tx = 0, ty = 0, minTx = 0, samples = null, chevEls = [];
+  let scale = 1, tx = 0, ty = 0, minTx = 0, geo = null, chevEls = [];
   let sway = null; // 자동 좌우 둘러보기 상태 { c: 중심, a: 진폭, p0: 시작 위상, t0: 시작 시각 }
   const SWAY_MS = 26000, SWAY_ROT = 2; // 한 번 왕복하는 시간(ms), 끝에서 고개를 돌린 듯 기울이는 각도(도)
 
-  // ---------- 경로 기하: Catmull-Rom 으로 부드럽게 잇고, 폭으로 원근 거리를 누적 ----------
-  function sample(path) {
-    const P = path, out = [];
+  // ---------- 경로 기하 ----------
+  // 두 가지 방식이 있다. 둘 다 { total, n, ribbon, ringHtml(cls), chev(d) } 를 돌려준다.
+  //  - flatGeo: 화면 좌표에서 점마다 폭을 직접 준다. 에스컬레이터처럼 바닥 평면이 아닌 경로에 쓴다.
+  //  - floorGeo: 장면에 수평선 높이(hy)가 있으면, 경로를 바닥 평면 위의 일정한 폭의 띠로 보고 원근 투영한다.
+  //    옆으로 꺾인 구간이 벽을 타지 않고 바닥에 납작하게 붙는다.
+  const fmt = (q) => q[0].toFixed(1) + ',' + q[1].toFixed(1);
+
+  // Catmull-Rom 으로 부드럽게 잇고, 폭으로 원근 거리를 누적
+  function flatGeo(s) {
+    const P = s.path, out = [];
     const at = (i) => P[Math.max(0, Math.min(P.length - 1, i))];
     for (let i = 0; i < P.length - 1; i++) {
       const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
-      for (let s = 0; s < 16; s++) {
-        const t = s / 16, t2 = t * t, t3 = t2 * t;
-        out.push([0, 1, 2].map((k) => 0.5 * (2 * p1[k] + (p2[k] - p0[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (3 * p1[k] - p0[k] - 3 * p2[k] + p3[k]) * t3)));
+      for (let k = 0; k < 16; k++) {
+        const t = k / 16, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1, 2].map((c) => 0.5 * (2 * p1[c] + (p2[c] - p0[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (3 * p1[c] - p0[c] - 3 * p2[c] + p3[c]) * t3)));
       }
     }
     out.push(P[P.length - 1].slice());
     // d: 화면 거리 ÷ 폭 을 누적한 값. 멀수록 폭이 좁으니, d 를 일정하게 움직이면 원근감 있게 느려진다.
     let d = 0;
-    return out.map((p, i) => {
+    const S = out.map((p, i) => {
       const a = out[Math.max(0, i - 1)], b = out[Math.min(out.length - 1, i + 1)];
       let dx = b[0] - a[0], dy = b[1] - a[1]; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
       if (i) d += Math.hypot(p[0] - out[i - 1][0], p[1] - out[i - 1][1]) / Math.max(8, (p[2] + out[i - 1][2]) / 2);
       return { x: p[0], y: p[1], w: Math.max(6, p[2]), tx: dx, ty: dy, d };
     });
+    const atD = (dd) => {
+      let i = 1; while (i < S.length - 1 && S[i].d < dd) i++;
+      const a = S[i - 1], b = S[i], t = (dd - a.d) / ((b.d - a.d) || 1), m = (k) => a[k] + (b[k] - a[k]) * t;
+      return { x: m('x'), y: m('y'), w: m('w'), tx: m('tx'), ty: m('ty') };
+    };
+    const L = S.map((q) => fmt([q.x + q.ty * q.w / 2, q.y - q.tx * q.w / 2]));
+    const R = S.map((q) => fmt([q.x - q.ty * q.w / 2, q.y + q.tx * q.w / 2])).reverse();
+    const e = S[S.length - 1];
+    return {
+      total: d, n: Math.max(3, Math.round(d / 0.75)), ribbon: L.concat(R).join(' '),
+      ringHtml: (cls) => `<ellipse class="${cls}" cx="${e.x}" cy="${e.y}" rx="${e.w * 1.5}" ry="${e.w * 0.55}" stroke-width="3"/>`,
+      chev: (dd) => {
+        const q = atD(dd), h = q.w * 0.3, k = q.w * 0.2, nx = q.ty, ny = -q.tx;
+        return { pts: [[q.x + nx * h - q.tx * k, q.y + ny * h - q.ty * k], [q.x + q.tx * k, q.y + q.ty * k], [q.x - nx * h - q.tx * k, q.y - ny * h - q.ty * k]], sw: Math.max(2.5, q.w * 0.085) };
+      },
+    };
   }
-  function atD(S, d) {
-    let i = 1; while (i < S.length - 1 && S[i].d < d) i++;
-    const a = S[i - 1], b = S[i], t = (d - a.d) / ((b.d - a.d) || 1), m = (k) => a[k] + (b[k] - a[k]) * t;
-    return { x: m('x'), y: m('y'), w: m('w'), tx: m('tx'), ty: m('ty') };
+
+  // 바닥 평면 모델. 화면 점 (x, y) ↔ 바닥 좌표 (X: 좌우, Z: 깊이). 단위는 카메라 높이(약 1.5m).
+  //   X = (x - cx) / (y - hy),  Z = FOCAL / (y - hy)   ← 수평선(hy)에 가까울수록 멀다
+  const FOCAL = 1386; // 사진 긴 변 1920px 기준 초점거리(px). iPhone 기본 카메라(26mm 상당, 수평 화각 약 69°)
+  function floorGeo(s) {
+    const cx = s.w / 2, hy = s.hy;
+    const toG = (q) => [(q[0] - cx) / (q[1] - hy), FOCAL / (q[1] - hy)];
+    const proj = (X, Z) => { const dy = FOCAL / Math.max(0.3, Z); return [cx + X * dy, hy + dy]; };
+    const V = s.path.map(toG), W = s.gw, R = W * 0.9; // W: 띠의 실제 폭, R: 꺾이는 곳을 둥글리는 반경
+    const pts = [];
+    const line = (a, b) => {
+      const n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.12));
+      for (let i = 0; i < n; i++) pts.push([a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]);
+    };
+    let prev = V[0];
+    for (let i = 1; i < V.length - 1; i++) {
+      const a = V[i - 1], v = V[i], b = V[i + 1];
+      const la = Math.hypot(v[0] - a[0], v[1] - a[1]), lb = Math.hypot(b[0] - v[0], b[1] - v[1]), r = Math.min(R, la / 2, lb / 2);
+      const p = [v[0] + (a[0] - v[0]) * r / la, v[1] + (a[1] - v[1]) * r / la], q = [v[0] + (b[0] - v[0]) * r / lb, v[1] + (b[1] - v[1]) * r / lb];
+      line(prev, p);
+      for (let k = 0; k < 10; k++) { const t = k / 10, u = 1 - t; pts.push([u * u * p[0] + 2 * u * t * v[0] + t * t * q[0], u * u * p[1] + 2 * u * t * v[1] + t * t * q[1]]); }
+      prev = q;
+    }
+    line(prev, V[V.length - 1]); pts.push(V[V.length - 1]);
+    let d = 0; // 바닥 위에서 잰 실제 거리 → 화살표가 원근에 맞게 멀수록 촘촘하고 느리게 보인다
+    const S = pts.map((q, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      let tX = b[0] - a[0], tZ = b[1] - a[1]; const len = Math.hypot(tX, tZ) || 1; tX /= len; tZ /= len;
+      if (i) d += Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]);
+      return { X: q[0], Z: q[1], tX, tZ, d };
+    });
+    const off = (q, side, fwd) => proj(q.X + q.tZ * side + q.tX * fwd, q.Z - q.tX * side + q.tZ * fwd); // 바닥에서 옆·앞으로 옮긴 점
+    const atD = (dd) => {
+      let i = 1; while (i < S.length - 1 && S[i].d < dd) i++;
+      const a = S[i - 1], b = S[i], t = (dd - a.d) / ((b.d - a.d) || 1), m = (k) => a[k] + (b[k] - a[k]) * t;
+      return { X: m('X'), Z: m('Z'), tX: m('tX'), tZ: m('tZ') };
+    };
+    const e = S[S.length - 1];
+    const ring = Array.from({ length: 28 }, (_, i) => fmt(proj(e.X + Math.cos(i / 14 * Math.PI) * W * 0.9, e.Z + Math.sin(i / 14 * Math.PI) * W * 0.9))).join(' ');
+    return {
+      total: d, n: Math.max(3, Math.round(d / (W * 1.5))),
+      ribbon: S.map((q) => fmt(off(q, W / 2, 0))).concat(S.map((q) => fmt(off(q, -W / 2, 0))).reverse()).join(' '),
+      ringHtml: (cls) => `<polygon class="${cls}" points="${ring}" stroke-width="3"/>`,
+      chev: (dd) => {
+        const q = atD(dd), h = W * 0.3, k = W * 0.2;
+        return { pts: [off(q, h, -k), off(q, 0, k), off(q, -h, -k)], sw: Math.max(2.2, W * 0.085 * FOCAL / q.Z) };
+      },
+    };
   }
 
   function drawFx(s) {
     let html = '';
-    samples = null; chevEls = [];
+    geo = null; chevEls = [];
     if (s.path) {
-      const S = samples = sample(s.path);
-      const L = S.map((p) => `${(p.x + p.ty * p.w / 2).toFixed(1)},${(p.y - p.tx * p.w / 2).toFixed(1)}`);
-      const R = S.map((p) => `${(p.x - p.ty * p.w / 2).toFixed(1)},${(p.y + p.tx * p.w / 2).toFixed(1)}`).reverse();
-      const pts = L.concat(R).join(' ');
-      const e = S[S.length - 1];
-      html += `<polygon class="ribbon-glow" points="${pts}"/><polygon class="ribbon" points="${pts}" stroke-width="3"/>`;
-      html += `<g id="chevs"></g>`;
-      html += [1, 2].map((n) => `<ellipse class="ring${n === 2 ? ' r2' : ''}" cx="${e.x}" cy="${e.y}" rx="${e.w * 1.5}" ry="${e.w * 0.55}" stroke-width="3"/>`).join('');
+      geo = s.hy ? floorGeo(s) : flatGeo(s);
+      html += `<polygon class="ribbon-glow" points="${geo.ribbon}"/><polygon class="ribbon" points="${geo.ribbon}" stroke-width="3"/>`;
+      html += `<g id="chevs"></g>` + geo.ringHtml('ring') + geo.ringHtml('ring r2');
     } else if (s.ring) {
       const [x, y, r] = s.ring;
       html += [1, 2].map((n) => `<ellipse class="ring${n === 2 ? ' r2' : ''}" cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.32}" stroke="#7CFFB2" style="stroke:#7CFFB2;fill:rgba(124,255,178,.18)" stroke-width="5"/>`).join('');
     }
     fx.setAttribute('viewBox', `0 0 ${s.w} ${s.h}`);
     fx.innerHTML = html;
-    if (samples) {
-      const g = fx.querySelector('#chevs'), total = samples[samples.length - 1].d;
-      const n = Math.max(3, Math.round(total / 0.75));
-      for (let i = 0; i < n; i++) {
+    if (geo) {
+      const g = fx.querySelector('#chevs');
+      for (let i = 0; i < geo.n; i++) {
         const el = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
         el.setAttribute('class', 'chev'); g.appendChild(el); chevEls.push(el);
       }
@@ -325,19 +388,13 @@
 
   // 화살표가 경로를 따라 앞으로 흐르는 애니메이션
   function tick(now) {
-    if (samples && chevEls.length) {
-      const total = samples[samples.length - 1].d, gap = total / chevEls.length;
+    if (geo && chevEls.length) {
+      const gap = geo.total / chevEls.length;
       const phase = reduce ? 0.5 : (now / 1000 * 0.7) % 1;
       chevEls.forEach((el, i) => {
-        const d = (i + phase) * gap, p = atD(samples, d), h = p.w * 0.3, k = p.w * 0.2;
-        const nx = p.ty, ny = -p.tx;
-        el.setAttribute('points', [
-          [p.x + nx * h - p.tx * k, p.y + ny * h - p.ty * k],
-          [p.x + p.tx * k, p.y + p.ty * k],
-          [p.x - nx * h - p.tx * k, p.y - ny * h - p.ty * k],
-        ].map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' '));
-        el.setAttribute('stroke-width', Math.max(2.5, p.w * 0.085).toFixed(1));
-        const f = d / total;
+        const d = (i + phase) * gap, c = geo.chev(d), f = d / geo.total;
+        el.setAttribute('points', c.pts.map(fmt).join(' '));
+        el.setAttribute('stroke-width', c.sw.toFixed(1));
         el.setAttribute('opacity', Math.min(1, f * 6, (1 - f) * 5).toFixed(2));
       });
     }
