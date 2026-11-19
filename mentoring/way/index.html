@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0c10">
+<title>카카오 아지트 오는 길 | 3D 길 안내</title>
+<meta name="description" content="판교역에서 카카오 아지트 3층 엘리베이터 앞까지, 실제 사진 위에 게임처럼 경로를 띄워 안내하는 모바일 페이지">
+<style>
+  :root {
+    --y: #FEE500; --y-rgb: 254, 229, 0;
+    --bg: #0b0c10; --panel: #14161c; --line: rgba(255,255,255,.12);
+    --fg: #f5f5f7; --mute: #9a9ca5;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); overscroll-behavior: none; }
+  body {
+    color: var(--fg); word-break: keep-all; line-height: 1.45; overflow: hidden;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  [hidden] { display: none !important; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .08em; }
+
+  /* ---------- 시작 화면: 출발 지점 선택 ---------- */
+  #start {
+    position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto;
+    background:
+      linear-gradient(180deg, rgba(11,12,16,.35) 0%, rgba(11,12,16,.78) 42%, var(--bg) 78%),
+      url("assets/a-goal.webp") center top / cover no-repeat;
+  }
+  #start .tag { color: var(--y); font-size: 11px; }
+  #start h1 { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; margin-top: 10px; }
+  #start h1 em { font-style: normal; color: var(--y); }
+  #start .lead { color: var(--mute); font-size: 15px; margin-top: 10px; }
+  .picks { display: grid; gap: 10px; margin-top: 22px; }
+  .pick {
+    display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px; text-align: left;
+    padding: 14px 16px; border-radius: 16px; background: rgba(20,22,28,.86); border: 1px solid var(--line);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: border-color .2s, transform .2s;
+  }
+  .pick:active { transform: scale(.98); border-color: var(--y); }
+  .pick .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(var(--y-rgb), .14); color: var(--y); font-weight: 800; font-size: 17px; }
+  .pick b { display: block; font-size: 17px; letter-spacing: -.02em; }
+  .pick span { display: block; color: var(--mute); font-size: 13px; margin-top: 2px; }
+  .pick .go { color: var(--y); font-size: 20px; }
+  .pick.alt .ic { background: rgba(255,255,255,.08); color: var(--fg); }
+  .sep { color: var(--mute); font-size: 11px; margin: 6px 4px 0; }
+
+  /* ---------- 게임 화면 ---------- */
+  #game { position: fixed; inset: 0; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; }
+  .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #000; touch-action: none; cursor: grab; }
+  .cam { position: absolute; inset: 0; will-change: transform, opacity; transition: transform .62s cubic-bezier(.5, 0, .9, .5), opacity .62s ease-in, filter .62s ease-in; }
+  .cam.out { transform: scale(2.6); opacity: 0; filter: blur(6px); }
+  .cam.pre { transform: scale(1.22); opacity: 0; transition: none; }
+  .cam.in { transition: transform .7s var(--ease), opacity .45s ease-out; }
+  .cam.fade { opacity: 0; transition: opacity .25s; }
+  .scene { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  .scene img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+  .scene svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .stage::after { /* 화면 가장자리 비네트 */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 55%, transparent 55%, rgba(0,0,0,.55) 100%),
+                linear-gradient(180deg, rgba(0,0,0,.55) 0, transparent 22%, transparent 82%, rgba(11,12,16,.9) 100%);
+  }
+
+  /* 바닥 경로 */
+  .ribbon { fill: rgba(var(--y-rgb), .26); stroke: rgba(var(--y-rgb), .95); stroke-linejoin: round; }
+  .ribbon-glow { fill: rgba(var(--y-rgb), .5); filter: blur(18px); }
+  .chev { fill: none; stroke: #fff; stroke-linecap: round; stroke-linejoin: round; }
+  .ring { fill: rgba(var(--y-rgb), .18); stroke: var(--y); transform-box: fill-box; transform-origin: center; animation: ring 1.8s ease-out infinite; }
+  .ring.r2 { animation-delay: .9s; }
+  @keyframes ring { from { transform: scale(.35); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+  /* 웨이포인트 마커 */
+  .wp { position: absolute; z-index: 2; transform: translate(-50%, -100%); display: grid; justify-items: center; padding: 8px; pointer-events: auto; animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translate(-50%, calc(-100% - 7px)); } }
+  .wp .lbl { padding: 3px 9px; border-radius: 999px; background: rgba(11,12,16,.82); border: 1px solid rgba(var(--y-rgb), .7); color: var(--y); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .wp .gem { width: 22px; height: 22px; margin-top: 6px; background: var(--y); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); filter: drop-shadow(0 0 8px var(--y)); animation: spin 2.4s linear infinite; }
+  @keyframes spin { to { transform: rotateY(360deg); } }
+  .beam { position: absolute; z-index: 1; width: 3px; transform: translateX(-50%); pointer-events: none; border-radius: 2px;
+          background: linear-gradient(180deg, rgba(var(--y-rgb), .95), rgba(var(--y-rgb), 0)); box-shadow: 0 0 12px rgba(var(--y-rgb), .8); }
+  .wp.goal .gem { background: #7CFFB2; filter: drop-shadow(0 0 10px #7CFFB2); }
+  .wp.goal .lbl { color: #7CFFB2; border-color: rgba(124,255,178,.7); }
+
+  /* HUD */
+  .hud { position: absolute; z-index: 5; pointer-events: none; }
+  .hud-tl { left: 12px; top: calc(12px + env(safe-area-inset-top)); right: 122px; }
+  .obj { display: inline-grid; gap: 2px; padding: 8px 12px; border-radius: 12px; background: rgba(11,12,16,.72); border: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); max-width: 100%; }
+  .obj small { color: var(--y); font-size: 10px; }
+  .obj b { font-size: 14px; letter-spacing: -.02em; }
+  .obj i { font-style: normal; color: var(--mute); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pips { display: flex; gap: 4px; margin-top: 8px; max-width: 220px; }
+  .pips span { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.28); }
+  .pips span.on { background: var(--y); box-shadow: 0 0 8px rgba(var(--y-rgb), .8); }
+  .hud-tr { right: 12px; top: calc(12px + env(safe-area-inset-top)); width: 100px; }
+  .map { width: 100px; height: 100px; border-radius: 50%; background: rgba(11,12,16,.74); border: 1.5px solid rgba(var(--y-rgb), .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); overflow: hidden; }
+  .map svg { width: 100%; height: 100%; display: block; }
+  .map .all { fill: none; stroke: rgba(255,255,255,.22); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .map .todo { fill: none; stroke: rgba(var(--y-rgb), .4); stroke-width: 3; stroke-dasharray: 1 6; stroke-linecap: round; }
+  .map .done { fill: none; stroke: var(--y); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .map .me { fill: #fff; stroke: var(--y); stroke-width: 2; }
+  .map .pulse { fill: none; stroke: #fff; stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 1.6s ease-out infinite; }
+  .map .end { fill: #7CFFB2; }
+  .map-cap { text-align: center; color: var(--mute); font-size: 9px; margin-top: 4px; text-shadow: 0 1px 3px #000; }
+  .hint { left: 50%; bottom: 52px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: rgba(11,12,16,.7); color: var(--fg); font-size: 12px; white-space: nowrap; transition: opacity .5s; }
+  .quit { position: absolute; z-index: 6; left: 12px; bottom: 12px; padding: 6px 12px; border-radius: 999px; background: rgba(11,12,16,.7); border: 1px solid var(--line); color: var(--mute); font-size: 12px; }
+  .done-banner { left: 0; right: 0; top: 34%; text-align: center; animation: pop .8s var(--ease) both; }
+  .done-banner b { display: inline-block; padding: 8px 18px; border-radius: 12px; background: rgba(11,12,16,.78); border: 1px solid rgba(124,255,178,.7); color: #7CFFB2; font-size: 20px; }
+  @keyframes pop { from { opacity: 0; transform: scale(.7); } }
+
+  /* 하단 조작 패널 */
+  .panel { background: var(--panel); border-top: 1px solid var(--line); padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); }
+  .inst { display: grid; grid-template-columns: 54px 1fr; gap: 12px; align-items: center; min-height: 66px; }
+  .inst .dir { width: 54px; height: 54px; border-radius: 14px; background: var(--y); color: #111; display: grid; place-items: center; }
+  .inst .dir svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .inst h2 { font-size: 19px; font-weight: 800; letter-spacing: -.03em; line-height: 1.25; }
+  .inst p { color: var(--mute); font-size: 13px; margin-top: 3px; }
+  .btns { display: grid; grid-template-columns: 64px 1fr; gap: 10px; margin-top: 12px; }
+  .btn { height: 52px; border-radius: 14px; font-weight: 800; font-size: 17px; }
+  .btn.back { background: rgba(255,255,255,.08); border: 1px solid var(--line); }
+  .btn.back:disabled { opacity: .35; }
+  .btn.next { background: var(--y); color: #111; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn.next:active { transform: scale(.98); }
+  .btn.next small { font: 600 12px ui-monospace, Menlo, monospace; opacity: .65; }
+
+  /* 엘리베이터 탑승 연출 */
+  .lift { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+  .lift i { position: absolute; top: 0; bottom: 0; width: 50.5%; background: linear-gradient(90deg, #23262e, #3a3e49 50%, #23262e); transition: transform .55s cubic-bezier(.6, 0, .3, 1); }
+  .lift i:first-child { left: 0; transform: translateX(-101%); border-right: 2px solid #111; }
+  .lift i:nth-child(2) { right: 0; transform: translateX(101%); border-left: 2px solid #111; }
+  .lift.shut i { transform: none; }
+  .lift .fl { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 1; opacity: 0; transition: opacity .3s; text-align: center;
+              padding: 14px 26px; border-radius: 14px; background: #0b0c10; border: 1px solid rgba(var(--y-rgb), .6); color: var(--y); }
+  .lift.shut .fl { opacity: 1; transition-delay: .4s; }
+  .lift .fl b { display: block; font: 800 44px ui-monospace, Menlo, monospace; }
+  .lift .fl small { font-size: 12px; color: var(--mute); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wp, .wp .gem, .ring, .map .pulse { animation: none; }
+    .cam, .cam.in { transition: opacity .2s; }
+    .cam.out, .cam.pre { transform: none; filter: none; }
+  }
+</style>
+</head>
+<body>
+
+<section id="start">
+  <p class="tag mono">MISSION · KAKAO AGIT</p>
+  <h1>카카오 아지트<br><em>3층 엘리베이터 앞</em>까지</h1>
+  <p class="lead">실제 사진 위에 뜨는 노란 경로만 따라오세요. 어디서 출발하나요?</p>
+  <div class="picks">
+    <button class="pick" data-route="south">
+      <span class="ic">남</span>
+      <span><b>판교역 남쪽에서</b><span>신분당선 개찰구 · GS25 앞</span></span>
+      <span class="go">▶</span>
+    </button>
+    <button class="pick" data-route="north">
+      <span class="ic">북</span>
+      <span><b>판교역 북쪽에서</b><span>경강선 개찰구 앞 · 발권기가 정면에 보이는 곳</span></span>
+      <span class="go">▶</span>
+    </button>
+    <p class="sep mono">지하철을 타지 않았다면</p>
+    <button class="pick alt" data-route="walk">
+      <span class="ic">1F</span>
+      <span><b>아지트 1층에서</b><span>아트리움 중앙 에스컬레이터로 3층까지</span></span>
+      <span class="go">▶</span>
+    </button>
+  </div>
+</section>
+
+<main id="game" hidden>
+  <div class="stage" id="stage">
+    <div class="cam" id="cam">
+      <div class="scene" id="scene">
+        <img id="photo" alt="">
+        <svg id="fx" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="beam" id="beam"></div>
+        <button class="wp" id="wp" aria-label="다음 지점으로 전진"><span class="lbl" id="wpl"></span><span class="gem"></span></button>
+      </div>
+    </div>
+
+    <div class="hud hud-tl">
+      <div class="obj">
+        <small class="mono">◆ 목표</small>
+        <b>아지트 3층 엘리베이터 앞</b>
+        <i id="place"></i>
+      </div>
+      <div class="pips" id="pips"></div>
+    </div>
+    <div class="hud hud-tr">
+      <div class="map"><svg id="map" viewBox="0 0 100 100" aria-hidden="true"></svg></div>
+      <p class="map-cap">약도 (방위·축척 아님)</p>
+    </div>
+    <div class="hud done-banner" id="done" hidden><b>🎉 도착!</b></div>
+    <div class="hud hint" id="hint">↔ 드래그해서 둘러보기</div>
+    <button class="quit" id="quit">출발 지점 다시 고르기</button>
+    <div class="lift" id="lift"><i></i><i></i><div class="fl"><b id="floor">B1</b><small>엘리베이터 이동 중 ▲</small></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="inst">
+      <div class="dir" id="dir"></div>
+      <div><h2 id="title"></h2><p id="sub"></p></div>
+    </div>
+    <div class="btns">
+      <button class="btn back" id="back" aria-label="이전 지점">◀</button>
+      <button class="btn next" id="next"></button>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  // ---------- 경로 데이터 ----------
+  // path: 사진 픽셀 좌표 [x, y, 바닥 경로 폭]. 화면 아래(가까움) → 위(멀리) 순서.
+  // tgt: 웨이포인트 마커가 뜨는 위치. fx: 처음 화면 가운데에 둘 x좌표. map: 약도 좌표(0~100).
+  const SCENES = {
+    south: { img: 's-south.webp', w: 1920, h: 1440, fx: 840, map: [88, 64], place: '판교역 · 신분당선 개찰구 앞',
+      path: [[1010, 1440, 440], [900, 1220, 190], [815, 1090, 80], [785, 1040, 40]], tgt: [782, 950], dist: 30, icon: 'up',
+      title: '정면 통로로 직진', sub: '천장 "교통카드 충전" 간판 아래로, 멀리 KAKAO AGIT 문이 보여요' },
+    north: { img: 's-north.webp', w: 1920, h: 1440, fx: 1030, map: [88, 92], place: '판교역 · 경강선 개찰구 앞',
+      path: [[960, 1440, 560], [1000, 1150, 250], [1035, 1000, 90], [1042, 950, 50]], tgt: [1042, 860], dist: 45, icon: 'up',
+      title: '정면 발권기까지 직진', sub: '승차권 발권기 바로 옆 통로에 KAKAO AGIT 문이 있어요' },
+    door: { img: 's-door.webp', w: 1440, h: 1920, fx: 640, map: [64, 78], place: '판교역 · 경강선 역무실 옆',
+      path: [[620, 1920, 520], [575, 1560, 300], [562, 1260, 180], [575, 1150, 130]], tgt: [630, 1010], dist: 8, icon: 'door',
+      title: 'KAKAO AGIT 문으로 들어가기', sub: '오른쪽은 역무실, 바닥의 노란 점자블록을 따라가세요' },
+    esc: { img: 's-esc.webp', w: 1440, h: 1920, fx: 800, map: [58, 72], place: '판교역 → 아지트 연결 통로',
+      path: [[850, 1900, 250], [880, 1500, 170], [880, 1150, 110], [850, 850, 55]], tgt: [850, 790], icon: 'esc',
+      title: '에스컬레이터 타고 올라가기', sub: '문 안쪽, 오른쪽 에스컬레이터가 올라가는 방향이에요' },
+    adoor: { img: 'a-door.webp', w: 1920, h: 1440, fx: 660, map: [50, 62], place: '아지트 B1 · 지하철 연결 입구',
+      path: [[960, 1440, 520], [760, 1280, 280], [610, 1150, 150], [565, 1090, 100]], tgt: [560, 930], dist: 5, icon: 'door',
+      title: 'KAKAO AGIT 유리문 통과', sub: '문 너머로 커다란 LED 전광판 복도가 보여요' },
+    c1: { img: 'a-c1.webp', w: 1920, h: 1440, fx: 800, map: [43, 58], place: '아지트 B1 · 지하철 통로',
+      path: [[520, 1440, 440], [610, 1120, 220], [675, 935, 100], [820, 915, 50], [985, 912, 40]], tgt: [935, 640], dist: 15, icon: 'right',
+      title: '복도 끝에서 우회전', sub: '천장 안내판의 "KAKAO →" 방향이에요. 오른쪽 벽은 LED 전광판' },
+    c2: { img: 'a-c2.webp', w: 1920, h: 1440, fx: 940, map: [40, 46], place: '아지트 B1 · 엘리베이터 가는 길',
+      path: [[760, 1440, 560], [880, 1080, 260], [945, 860, 110], [962, 775, 60]], tgt: [962, 690], dist: 25, icon: 'elev', trans: 'elev',
+      title: '정면 엘리베이터 타고 3층으로', sub: '복도 끝 B1 엘리베이터를 타고 3층에서 내리면 바로 도착이에요' },
+    f1: { img: 'a-1f.webp', w: 1920, h: 1440, fx: 960, map: [8, 20], place: '아지트 1층 · 아트리움',
+      path: [[985, 1440, 300], [975, 1300, 200], [965, 1000, 150], [955, 620, 70]], tgt: [950, 470], icon: 'esc',
+      title: '에스컬레이터 타고 3층까지', sub: '오른쪽이 올라가는 방향. 안내판 "↑3 KAKAO WELCOME DESK"를 확인하세요' },
+    f3: { img: 'a-3f-esc.webp', w: 1920, h: 1440, fx: 780, map: [24, 22], place: '아지트 3층 · 에스컬레이터 앞',
+      path: [[1150, 1440, 560], [880, 1200, 300], [650, 1010, 140], [545, 935, 80]], tgt: [540, 790], dist: 20, icon: 'left',
+      title: '왼쪽 통로로 들어가기', sub: '크리스마스 트리가 보이는 쪽이 웰컴데스크예요' },
+    goal: { img: 'a-goal.webp', w: 1920, h: 1440, fx: 900, map: [40, 20], place: '아지트 3층 · 엘리베이터 앞',
+      tgt: [900, 1090], ring: [900, 1160, 260], icon: 'flag', goal: true,
+      title: '도착! 여기서 만나요', sub: '웰컴데스크와 라이언 트리가 보이면 맞게 온 거예요' },
+  };
+  const ROUTES = {
+    south: ['south', 'door', 'esc', 'adoor', 'c1', 'c2', 'goal'],
+    north: ['north', 'door', 'esc', 'adoor', 'c1', 'c2', 'goal'],
+    walk: ['f1', 'f3', 'goal'],
+  };
+  const ICONS = {
+    up: '<path d="M16 27V6M7 14l9-9 9 9"/>',
+    right: '<path d="M8 27V15a4 4 0 0 1 4-4h13M19 5l6 6-6 6"/>',
+    left: '<path d="M24 27V15a4 4 0 0 0-4-4H7M13 5l-6 6 6 6"/>',
+    door: '<path d="M9 27V5h14v22M5 27h22"/><circle cx="19" cy="16" r="1"/>',
+    esc: '<path d="M4 26h7L22 10h6"/><path d="M20 22l6-6M26 21v-5h-5"/>',
+    elev: '<rect x="6" y="4" width="20" height="24" rx="2"/><path d="M16 4v24M11 13l2-3 2 3M17 19l2 3 2-3"/>',
+    flag: '<path d="M8 28V5M8 6h15l-3 5 3 5H8"/>',
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const stage = $('stage'), cam = $('cam'), sceneEl = $('scene'), photo = $('photo'), fx = $('fx');
+  const wp = $('wp'), beam = $('beam');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  let route = null, routeKey = '', idx = 0, cur = null, busy = false;
+  let scale = 1, tx = 0, ty = 0, minTx = 0, samples = null, chevEls = [];
+
+  // ---------- 경로 기하: Catmull-Rom 으로 부드럽게 잇고, 폭으로 원근 거리를 누적 ----------
+  function sample(path) {
+    const P = path, out = [];
+    const at = (i) => P[Math.max(0, Math.min(P.length - 1, i))];
+    for (let i = 0; i < P.length - 1; i++) {
+      const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+      for (let s = 0; s < 16; s++) {
+        const t = s / 16, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1, 2].map((k) => 0.5 * (2 * p1[k] + (p2[k] - p0[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (3 * p1[k] - p0[k] - 3 * p2[k] + p3[k]) * t3)));
+      }
+    }
+    out.push(P[P.length - 1].slice());
+    // d: 화면 거리 ÷ 폭 을 누적한 값. 멀수록 폭이 좁으니, d 를 일정하게 움직이면 원근감 있게 느려진다.
+    let d = 0;
+    return out.map((p, i) => {
+      const a = out[Math.max(0, i - 1)], b = out[Math.min(out.length - 1, i + 1)];
+      let dx = b[0] - a[0], dy = b[1] - a[1]; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+      if (i) d += Math.hypot(p[0] - out[i - 1][0], p[1] - out[i - 1][1]) / Math.max(8, (p[2] + out[i - 1][2]) / 2);
+      return { x: p[0], y: p[1], w: Math.max(6, p[2]), tx: dx, ty: dy, d };
+    });
+  }
+  function atD(S, d) {
+    let i = 1; while (i < S.length - 1 && S[i].d < d) i++;
+    const a = S[i - 1], b = S[i], t = (d - a.d) / ((b.d - a.d) || 1), m = (k) => a[k] + (b[k] - a[k]) * t;
+    return { x: m('x'), y: m('y'), w: m('w'), tx: m('tx'), ty: m('ty') };
+  }
+
+  function drawFx(s) {
+    let html = '';
+    samples = null; chevEls = [];
+    if (s.path) {
+      const S = samples = sample(s.path);
+      const L = S.map((p) => `${(p.x + p.ty * p.w / 2).toFixed(1)},${(p.y - p.tx * p.w / 2).toFixed(1)}`);
+      const R = S.map((p) => `${(p.x - p.ty * p.w / 2).toFixed(1)},${(p.y + p.tx * p.w / 2).toFixed(1)}`).reverse();
+      const pts = L.concat(R).join(' ');
+      const e = S[S.length - 1];
+      html += `<polygon class="ribbon-glow" points="${pts}"/><polygon class="ribbon" points="${pts}" stroke-width="3"/>`;
+      html += `<g id="chevs"></g>`;
+      html += [1, 2].map((n) => `<ellipse class="ring${n === 2 ? ' r2' : ''}" cx="${e.x}" cy="${e.y}" rx="${e.w * 1.5}" ry="${e.w * 0.55}" stroke-width="3"/>`).join('');
+    } else if (s.ring) {
+      const [x, y, r] = s.ring;
+      html += [1, 2].map((n) => `<ellipse class="ring${n === 2 ? ' r2' : ''}" cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.32}" stroke="#7CFFB2" style="stroke:#7CFFB2;fill:rgba(124,255,178,.18)" stroke-width="5"/>`).join('');
+    }
+    fx.setAttribute('viewBox', `0 0 ${s.w} ${s.h}`);
+    fx.innerHTML = html;
+    if (samples) {
+      const g = fx.querySelector('#chevs'), total = samples[samples.length - 1].d;
+      const n = Math.max(3, Math.round(total / 0.75));
+      for (let i = 0; i < n; i++) {
+        const el = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        el.setAttribute('class', 'chev'); g.appendChild(el); chevEls.push(el);
+      }
+    }
+  }
+
+  // 화살표가 경로를 따라 앞으로 흐르는 애니메이션
+  function tick(now) {
+    if (samples && chevEls.length) {
+      const total = samples[samples.length - 1].d, gap = total / chevEls.length;
+      const phase = reduce ? 0.5 : (now / 1000 * 0.7) % 1;
+      chevEls.forEach((el, i) => {
+        const d = (i + phase) * gap, p = atD(samples, d), h = p.w * 0.3, k = p.w * 0.2;
+        const nx = p.ty, ny = -p.tx;
+        el.setAttribute('points', [
+          [p.x + nx * h - p.tx * k, p.y + ny * h - p.ty * k],
+          [p.x + p.tx * k, p.y + p.ty * k],
+          [p.x - nx * h - p.tx * k, p.y - ny * h - p.ty * k],
+        ].map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' '));
+        el.setAttribute('stroke-width', Math.max(2.5, p.w * 0.085).toFixed(1));
+        const f = d / total;
+        el.setAttribute('opacity', Math.min(1, f * 6, (1 - f) * 5).toFixed(2));
+      });
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- 배치: 사진을 무대에 꽉 채우고(cover) 좌우로 둘러볼 수 있게 ----------
+  function layout(keepPan) {
+    if (!cur) return;
+    const W = stage.clientWidth, H = stage.clientHeight;
+    scale = Math.max(W / cur.w, H / cur.h);
+    const sw = cur.w * scale, sh = cur.h * scale;
+    minTx = W - sw;
+    // 세로로 남으면 경로가 있는 아래쪽이 보이도록 아래 정렬에 가깝게 둔다
+    ty = (H - sh) * 0.7;
+    if (!keepPan) tx = W / 2 - cur.fx * scale;
+    tx = Math.max(minTx, Math.min(0, tx));
+    sceneEl.style.width = sw + 'px'; sceneEl.style.height = sh + 'px';
+    sceneEl.style.transform = `translate(${tx}px, ${ty}px)`;
+    const [x, y] = cur.tgt;
+    wp.style.left = x * scale + 'px'; wp.style.top = y * scale + 'px';
+    const endY = cur.path ? cur.path[cur.path.length - 1][1] : (cur.ring ? cur.ring[1] : y);
+    beam.style.left = x * scale + 'px'; beam.style.top = y * scale - 4 + 'px';
+    beam.style.height = Math.max(0, (endY - y) * scale) + 'px';
+    $('hint').style.opacity = (!hintSeen && minTx < -40) ? 1 : 0;
+  }
+  let hintSeen = false;
+
+  function drawMap() {
+    const line = (ids) => ids.map((id) => SCENES[id].map.join(',')).join(' ');
+    const me = cur.map;
+    let h = Object.values(ROUTES).map((r) => `<polyline class="all" points="${line(r)}"/>`).join('');
+    h += `<polyline class="todo" points="${line(route.slice(idx))}"/><polyline class="done" points="${line(route.slice(0, idx + 1))}"/>`;
+    h += `<circle class="end" cx="${SCENES.goal.map[0]}" cy="${SCENES.goal.map[1]}" r="4.5"/>`;
+    h += `<circle class="pulse" cx="${me[0]}" cy="${me[1]}" r="9"/><circle class="me" cx="${me[0]}" cy="${me[1]}" r="4.5"/>`;
+    $('map').innerHTML = h;
+  }
+
+  async function show(i) {
+    idx = i; cur = SCENES[route[i]];
+    const src = 'assets/' + cur.img;
+    if (photo.getAttribute('src') !== src) {
+      photo.src = src;
+      try { await photo.decode(); } catch (e) { /* 디코드 실패해도 진행 */ }
+    }
+    photo.alt = cur.place;
+    drawFx(cur);
+    layout(false);
+    const last = i === route.length - 1;
+    wp.classList.toggle('goal', !!cur.goal);
+    $('wpl').textContent = cur.goal ? '도착 지점' : (cur.dist ? `약 ${cur.dist}m` : '위로');
+    $('place').textContent = cur.place;
+    $('dir').innerHTML = `<svg viewBox="0 0 32 32">${ICONS[cur.icon]}</svg>`;
+    $('title').textContent = cur.title; $('sub').textContent = cur.sub;
+    $('pips').innerHTML = route.map((_, k) => `<span class="${k <= i ? 'on' : ''}"></span>`).join('');
+    $('back').disabled = i === 0;
+    $('next').innerHTML = last ? '방문 안내 보기' : `전진 <small>${i + 1}/${route.length - 1}</small> ▶`;
+    $('done').hidden = !cur.goal;
+    drawMap();
+    history.replaceState(null, '', `#${routeKey}/${i + 1}`);
+    const nx = SCENES[route[i + 1]]; if (nx) new Image().src = 'assets/' + nx.img; // 다음 사진 미리 받기
+  }
+
+  // ---------- 이동 연출 ----------
+  async function go(dir) {
+    if (busy) return;
+    const n = idx + dir;
+    if (n < 0) return;
+    if (n >= route.length) { location.href = '../'; return; }
+    busy = true; hintSeen = true;
+    if (dir > 0 && cur.trans === 'elev') {
+      const lift = $('lift'), fl = $('floor');
+      fl.textContent = 'B1'; lift.classList.add('shut');
+      await sleep(650);
+      await show(n);
+      for (const f of ['1F', '2F', '3F']) { await sleep(reduce ? 120 : 420); fl.textContent = f; }
+      await sleep(450); lift.classList.remove('shut'); await sleep(550);
+    } else if (dir > 0) {
+      // 웨이포인트를 향해 카메라가 빨려 들어간다
+      cam.style.transformOrigin = `${tx + cur.tgt[0] * scale}px ${ty + cur.tgt[1] * scale}px`;
+      cam.classList.add('out'); await sleep(reduce ? 200 : 600);
+      await show(n);
+      cam.style.transformOrigin = '50% 60%';
+      cam.classList.remove('out'); cam.classList.add('pre'); void cam.offsetWidth;
+      cam.classList.remove('pre'); cam.classList.add('in'); await sleep(reduce ? 200 : 500);
+      cam.classList.remove('in');
+    } else {
+      cam.classList.add('fade'); await sleep(250);
+      await show(n);
+      cam.classList.remove('fade'); await sleep(250);
+    }
+    busy = false;
+  }
+
+  async function begin(key, step) {
+    routeKey = key; route = ROUTES[key];
+    $('start').hidden = true; $('game').hidden = false;
+    await show(Math.max(0, Math.min(route.length - 1, step || 0)));
+  }
+  function quit() {
+    $('game').hidden = true; $('start').hidden = false;
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  // ---------- 입력 ----------
+  document.querySelectorAll('.pick').forEach((b) => b.addEventListener('click', () => begin(b.dataset.route, 0)));
+  $('next').addEventListener('click', () => go(1));
+  $('back').addEventListener('click', () => go(-1));
+  $('quit').addEventListener('click', quit);
+  wp.addEventListener('click', () => { if (!drag.moved && !cur.goal) go(1); });
+  addEventListener('keydown', (e) => {
+    if ($('game').hidden) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') go(1);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') go(-1);
+  });
+  // 드래그로 좌우 둘러보기
+  const drag = { on: false, x: 0, tx: 0, moved: false };
+  stage.addEventListener('pointerdown', (e) => { drag.on = true; drag.x = e.clientX; drag.tx = tx; drag.moved = false; });
+  addEventListener('pointermove', (e) => {
+    if (!drag.on || busy) return;
+    const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 6) { drag.moved = true; hintSeen = true; $('hint').style.opacity = 0; }
+    if (!drag.moved) return;
+    tx = Math.max(minTx, Math.min(0, drag.tx + dx));
+    sceneEl.style.transform = `translate(${tx}px, ${ty}px)`;
+  });
+  addEventListener('pointerup', () => { drag.on = false; });
+  addEventListener('pointercancel', () => { drag.on = false; });
+  addEventListener('resize', () => layout(true));
+
+  requestAnimationFrame(tick);
+  // 주소의 #경로/단계 로 바로 열기 (예: #south/3)
+  const m = location.hash.match(/^#(\w+)\/(\d+)$/);
+  if (m && ROUTES[m[1]]) begin(m[1], +m[2] - 1);
+})();
+</script>
+</body>
+</html>
