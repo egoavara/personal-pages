@@ -126,13 +126,12 @@ function googleSearch(id){
 }
 // Place each time chip on its own line, keeping stops and nearby routes legible.
 function placeLegChips(legs, stops){
- const project=ll=>streets.latLngToContainerPoint(ll);
+ const project=ll=>streets.project(ll);
  const paths=legs.map(leg=>L.LineUtil.simplify(leg.line.getLatLngs().map(project),1));
  const occupied=stops.map(ll=>{
   const {x,y}=project(ll);
   return [x-24,y-39,x+24,y+23];
  });
- const size=streets.getSize();
  const overlap=(a,b)=>Math.max(0,Math.min(a[2],b[2])-Math.max(a[0],b[0]))*
                        Math.max(0,Math.min(a[3],b[3])-Math.max(a[1],b[1]));
  paths.forEach((path,i)=>{
@@ -163,7 +162,6 @@ function placeLegChips(legs, stops){
     [w+12,h+28],[-w-12,h+28],[w+12,-h-28],[-w-12,-h-28],[0,h+78],[0,-h-78]]){
     const x=point.x+dx,y=point.y+dy,rect=[x-w,y-h,x+w,y+h];
     const covered=occupied.reduce((sum,r)=>sum+overlap(rect,r),0);
-    const clipped=Math.max(0,4*w*h-overlap(rect,[0,0,size.x,size.y]));
     const center=L.point(x,y);
     // Keep displaced labels alongside their leg instead of past the next stop.
     const along=((x-start.x)*span.x+(y-start.y)*span.y)/(straightLength||1);
@@ -175,12 +173,12 @@ function placeLegChips(legs, stops){
       nearestOther=Math.min(nearestOther,L.LineUtil.pointToSegmentDistance(center,other[m-1],other[m]));
     });
     const wrongLine=Math.max(0,Math.hypot(dx,dy)-nearestOther);
-    const cost=overshoot*32+wrongLine*10+routeCost+Math.hypot(dx,dy)*4+covered*100+clipped*80;
+    const cost=overshoot*32+wrongLine*10+routeCost+Math.hypot(dx,dy)*4+covered*100;
     if(cost<score){score=cost;best={point,center:L.point(x,y),rect};}
    }
   }
-  const anchor=streets.containerPointToLatLng(best.point);
-  const center=streets.containerPointToLatLng(best.center);
+  const anchor=streets.unproject(best.point);
+  const center=streets.unproject(best.center);
   legs[i].leader.setLatLngs(best.center.equals(best.point)?[]:[anchor,center]);
   chip.setLatLng(center);
   occupied.push(best.rect);
@@ -203,13 +201,13 @@ function routeLayer(stops,ids){
  overlays=L.layerGroup().addTo(streets);
 
  const legs=[];
- if(refreshLegChips)streets.off('moveend resize',refreshLegChips);
+ if(refreshLegChips)streets.off('zoomend',refreshLegChips);
  let frame;
  refreshLegChips=()=>{
   cancelAnimationFrame(frame);
   frame=requestAnimationFrame(()=>{if(version===drawVersion)placeLegChips(legs,box);});
  };
- streets.on('moveend resize',refreshLegChips);
+ streets.on('zoomend',refreshLegChips);
  for(let j=1;j<stops.length;j++){
   const from=stops[j-1][0],to=stops[j][0],duration=stops[j][2];
   const endpoints=[coord(from),coord(to)];
