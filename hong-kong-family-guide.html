@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"><style>#streetmap svg{background:none;border-radius:0}.leg-time{color:#fff;background:#174f46;border:0;padding:1px 4px;font-size:11px}.leg-time:before{display:none}</style><title>홍콩 가족여행 · 경로와 식당</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fbf8ef;color:#173f38;font:16px/1.6 system-ui,sans-serif;word-break:keep-all}header{background:#164b43;color:#fff9e5;padding:24px max(4vw,calc((100vw - 1100px)/2))}h1{margin:0;font-size:clamp(28px,5vw,44px)}main{max-width:1150px;margin:auto;padding:18px 4% 48px}button{font:inherit;border:1px solid #79968b;color:#174b40;background:transparent;border-radius:6px;padding:8px 11px;cursor:pointer}button[aria-pressed=true]{background:#174b40;color:white}nav{display:flex;flex-wrap:wrap;gap:6px}h2,h3,p{margin:8px 0}.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}#map{width:100%;background:#e8eee4;border-radius:6px}article{border-bottom:1px solid #b8c6bd;padding:8px 0}small{color:#485e54}a{color:#14594b}header small{color:#eee5ca}.num{color:#a14d24}footer{margin-top:20px} @media(max-width:760px){.pair{grid-template-columns:1fr;gap:4px}}
+.mobile-nav{display:none}details summary{cursor:pointer;padding:10px 0;font-weight:650}
+@media(max-width:760px){
+ header{padding:14px 16px}header small{font-size:12px}h1{font-size:25px}main{padding:12px 14px 48px}#tabs{display:none}
+ .mobile-nav{display:flex;align-items:center;gap:10px}.mobile-nav select,#spot{font:inherit;min-height:44px;border:1px solid #82988f;border-radius:6px;background:#fffdf7;color:#173f38;padding:5px 9px}.mobile-nav select{flex:1;min-width:0}
+ #day{font-size:20px;line-height:1.3;margin:15px 0 5px}#summary{font-size:14px;margin:0 0 8px}
+ #streetmap{height:clamp(245px,38svh,365px)!important;border-radius:8px}.pair>*{min-width:0}
+ #list article{padding:14px 0}#list h3{font-size:18px}#list a,#list button,summary,.mobile-nav a{display:inline-flex;align-items:center;min-height:44px}
+ .leaflet-control-attribution{max-width:235px;line-height:1.1;font-size:9px}.leg-time{font-size:12px}
+}
+</style><header><small>2027. 1. 22–24　·　성인 4명　·　스탠포드 힐뷰</small><h1>홍콩 여행 경로와 식당</h1></header><main><div class="mobile-nav"><select id="route-choice" aria-label="날짜와 구간"></select><a href="#list">일정 보기 ↓</a></div><nav id="tabs" aria-label="일정 선택"></nav><h2 id="day"></h2><p id="summary"></p><div class="pair"><section><label for="spot">지도에서 볼 장소 </label><select id="spot" style="font:inherit;max-width:100%;padding:5px"></select><div id="streetmap" aria-label="여행 경로 지도" style="height:440px;margin-top:8px;background:#eef1ec"></div><small>실선은 도로 경로, 점선은 경유지 연결입니다. 선을 누르면 이동 구간을 확인할 수 있어요.</small><br><small><a id="largemap" target="_blank" rel="noopener">OpenStreetMap에서 열기 ↗</a></small><details><summary>이동 순서와 구간별 시간</summary><svg viewBox="0 0 480 350" id="map" role="img" aria-label="경유지 위치와 구간별 소요 시간"></svg><small>북쪽이 위인 위치 약도 · 숫자는 방문 순서, 주황색은 식당. 선의 시간은 예상 이동 시간입니다. 실제 길은 각 장소의 지도에서 확인하세요.</small></details></section><section id="list" aria-live="polite"></section></div><footer>4인 금액은 HK$1≈172원으로 환산한 예산입니다. 항공기·도로·주말 대기 상황에 따라 일정이 달라질 수 있어요. <a href="peak-mongkok-map.html">항구 양쪽 전체 지도와 트램 구간 상세</a></footer></main>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Approximate coordinates for the route diagram; navigation links use venue names and addresses.
+const venues={
+ h:['스탠포드 힐뷰',22.30146,114.17445,'Stanford Hillview Hotel Tsim Sha Tsui'],
+ a:['홍콩 국제공항',22.315,113.936,'Hong Kong International Airport'],
+ m:['마스터 콘지',22.2994,114.1732,'Master Congee 15 Cameron Road','죽 4그릇 · 약 3.8만 원 이내','예약 가능 여부 미확인 · +852 3483 1628','https://www.openrice.com/en/hongkong/r-master-congee-tsim-sha-tsui-hong-kong-style-congee-r626592'],
+ w:['와소 카페',22.3001,114.1729,'Waso Cafe 10 Granville Road','파인애플번·음료 · 약 3.4만~5.2만 원','현지 가이드상 예약 불가 · 현장 방문','https://hkcoffee.cafe/cafe/waso-cafe-tsim-sha-tsui/'],
+ s:['스타의 거리',22.2931,114.1741,'Bruce Lee Statue Avenue of Stars Hong Kong'],
+ c:['시계탑',22.29356,114.16955,'Former Kowloon-Canton Railway Clock Tower'],
+ n:['맥스 누들',22.2944,114.1681,'Maks Noodle Ocean Terminal OTG02','새우 완탕면·양지면 · 약 3.5만~6.9만 원','예약 가능 여부 미확인 · +852 3102 3862','https://www.harbourcity.com.hk/en/restaurant/mak-s-noodles/'],
+ f:['침사추이 선착장',22.2936,114.1689,'Tsim Sha Tsui Star Ferry Pier'],
+ p:['센트럴 선착장',22.2877,114.1602,'Central Ferry Pier 7 Hong Kong'],
+ b:['피크트램 하부역',22.2777,114.1594,'Peak Tram Lower Terminus 33 Garden Road'],
+ t:['피크 타워',22.2711,114.1498,'Peak Tower Hong Kong'],
+ l:['멘와빙텡',22.2702,114.1494,'Men Wah Bing Teng Peak Galleria shop 205','차슈·달걀밥 등 · 약 3.5만~6.9만 원','예약 가능 여부 미확인 · +852 2380 8186','https://www.hanglungmalls.com/en/peak-galleria/dining/men-wah-bing-teng'],
+ central:['센트럴역',22.2819,114.158,'Central MTR station Hong Kong'],
+ mk:['몽콕역',22.3191,114.1694,'Mong Kok MTR station'],
+ shoes:['운동화 거리',22.3177,114.1718,'Sneakers Street Fa Yuen Street Mong Kok'],
+ egg:['캄와 카페 金華冰廳',22.3235,114.1702,'Kam Wah Cafe 47 Bute Street','홍콩식 에그타르트 4개 포장 · 약 0.7만~1.7만 원 (음료 제외)','포장 방문 · 좌석 예약 및 당일 재고 미확인','https://www.littlestepsasia.com/hong-kong/dine/cafes-and-coffee-shops/egg-tarts/'],
+ market:['레이디스 마켓',22.3183,114.1706,'Ladies Market Tung Choi Street Mong Kok'],
+ chan:['찬키 로스트 구스',22.3182,114.1672,'Chan Kee 427 Reclamation Street Mong Kok','기존 선택 · 과거 가격대 기준 약 3.5만~6.9만 원','공식 목록과 폐점 표기가 충돌 · 영업·예약 모두 미확인','https://www.openrice.com/en/hongkong/r-chan-kee-restaurant-mong-kok-hong-kong-style-chinese-bbq-r16239'],
+ k:['키슨 로스트 구스',22.321,114.1678,'Kison Roasted Goose 34 Mong Kok Road','거위구이밥 등 · 약 3.5만~6.9만 원','찬키 대안 · 4인 예약 가능 여부 미확인','https://www.openrice.com/en/hongkong/r-kison-roasted-goose-mong-kok-hong-kong-style-chinese-bbq-r732289']};
+const routes=[
+ ['금 · 공항','1/22 금요일 · 11:55 홍콩 도착','09:05 인천 출발 YP801. 입국·수하물 수령 후 이동. 교통편은 선택 사항입니다.',[['a','11:55'],['h','13:20~14:00','택시 약 40분','빨간 시내 택시 1대 약 HK$280~350. A21 버스는 킴벌리 로드 하차 후 도보 약 7분, 대기 포함 60~90분·일반 성인 4명 HK$138.40.']]],
+ ['금 · 식사와 야경','1/22 금요일 · 침사추이','마스터 콘지 점심 → 호텔 휴식 → 바닷가 산책 → 맥스 누들 저녁.',[['h','출발'],['m','14:00','도보 5~10분'],['h','15:00','도보 5~10분'],['s','17:00 출발','도보 20~30분'],['c','18:00 전후','도보 10~20분','사진과 야경을 포함하면 해안 산책 40~60분.'],['n','18:30','도보 3~8분'],['h','저녁 후','택시 5~15분']]],
+ ['토 · 아침과 피크','1/23 토요일 · 피크트램과 정상 점심','아침 식사 후 센트럴행 페리. 피크트램 편도 시간은 주말 대기 포함 추정치입니다.',[['h','07:50'],['w','08:00','도보 5~10분'],['f','09:00 출발','도보 15~20분'],['p','09:30 전후','페리 15~25분'],['b','10:00 전후','택시 10~20분'],['t','오전','트램 25~60분'],['l','12:00','도보 3~5분'],['t','13:15 전후','도보 3~5분'],['b','하산','트램 25~60분'],['central','하산 후','도보 10~15분'],['mk','14:30 목표','MTR 20~30분']]],
+ ['토 · 몽콕 식당','1/23 토요일 · 시장과 에그타르트','캄와 카페는 추천 간식입니다. 저녁은 기존 찬키와 대안을 비교해 선택하세요.',[['mk','14:30 전후'],['shoes','오후','도보 5~10분'],['egg','15:45 전후','도보 10~15분'],['market','16:30','도보 8~15분'],['chan','18:00 후보','도보 8~15분'],['h','저녁 후','택시 10~25분']]],
+ ['토 · 저녁 대안','1/23 토요일 · 키슨에서 저녁','찬키 영업을 확인하지 못하면 레이디스 마켓에서 바로 키슨으로 가세요.',[['market','시장 구경 후'],['k','18:00','도보 8~15분'],['h','저녁 후','택시 10~25분']]],
+ ['일 · 귀국','1/24 일요일 · 인천행 YP802','08:00 조식은 자유 선택. 10:40까지 공항 도착 목표 → 13:40 홍콩 출발 → 18:15 인천 도착.',[['h','09:15 출발'],['a','09:50~10:10 예상','택시 35~55분']]]];
+venues.bank=['뱅크 스트리트',22.2803,114.1604,'Bank Street Tram Stop Central'];
+venues.ad=['퍼시픽 플레이스',22.2781,114.165,'Pacific Place tram stop Admiralty'];
+routes.splice(3,0,['토 · 딩딩 선택','1/23 토요일 · 하산 후 선택 구간','기본 동선보다 30~45분 여유를 두세요. 몽콕 도착 후 몽콕 식당 탭으로 이어집니다.',[['b','피크에서 하산'],['bank','하산 후','도보 8~15분'],['ad','동쪽 방면','딩딩 10~25분'],['mk','15:00~15:30','도보·MTR 25~40분']]]);
+const tabs=document.querySelector('#tabs'),map=document.querySelector('#map'),list=document.querySelector('#list');
+function mark(tag,attrs,content){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);if(content)el.textContent=content;map.append(el);return el}
+let streets, overlays, drawVersion=0;
+const roadCache=new Map();
+function routeLayer(stops,ids){
+ const version=++drawVersion;
+ const coord=id=>venues[id].slice(1,3);
+ const box=ids.map(coord);
+ if(!window.L){
+  document.querySelector('#streetmap').textContent='온라인 지도를 불러올 수 없습니다. 아래 약도 또는 각 구간의 길찾기를 이용하세요.';
+  return ()=>{};
+ }
+ if(!streets){
+  streets=L.map('streetmap',{scrollWheelZoom:false}).setView(box[0],14);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:18,maxZoom:19,attribution:'Tiles © Esri · Source: Esri, HERE, Garmin, USGS, Intermap, increment P, NRCan, METI, TomTom, and GIS User Community'}).addTo(streets);
+ }
+ if(overlays)overlays.remove();
+ overlays=L.layerGroup().addTo(streets);
+ const seen=new Set();
+ for(let j=1;j<stops.length;j++){
+  const from=stops[j-1][0],to=stops[j][0],duration=stops[j][2];
+  const key=[from,to].sort().join(':')+duration;
+  if(seen.has(key))continue;
+  seen.add(key);
+  const endpoints=[coord(from),coord(to)];
+  const line=L.polyline(endpoints,{color:'#086558',weight:4,dashArray:'6 6'}).addTo(overlays);
+  line.bindTooltip(duration,{permanent:true,direction:'center',className:'leg-time'});
+  line.bindPopup(venues[from][0]+' → '+venues[to][0]+' · '+duration);
+  const profile=duration.startsWith('택시')?'car':duration.startsWith('도보 ')&&!duration.includes('MTR')?'foot':null;
+  if(!profile)continue;
+  const url='https://routing.openstreetmap.de/routed-'+profile+'/route/v1/driving/'+endpoints.map(([lat,lon])=>lon+','+lat).join(';')+'?overview=full&geometries=geojson';
+  if(!roadCache.has(url))roadCache.set(url,fetch(url).then(r=>r.json()).then(data=>data.routes[0].geometry.coordinates.map(([lon,lat])=>[lat,lon])).catch(()=>{roadCache.delete(url);return null}));
+  roadCache.get(url).then(path=>{if(path&&version===drawVersion){line.setLatLngs(path);line.setStyle({dashArray:null});line.closeTooltip();line.openTooltip();}});
+ }
+ const markers=new Map();
+ ids.forEach((id,j)=>{
+  const marker=L.circleMarker(coord(id),{radius:7,color:'white',weight:2,fillColor:venues[id][4]?'#af481e':'#143f38',fillOpacity:1}).addTo(overlays);
+  marker.bindPopup((j+1)+'. '+venues[id][0]);markers.set(id,marker);
+ });
+ return id=>{if(id){streets.setView(coord(id),17);markers.get(id).openPopup();}else{streets.closePopup();streets.fitBounds(box,{padding:[35,35],maxZoom:17});}};
+}
+function render(i){
+ document.querySelector("#route-choice").value=String(i);
+ const [tab,title,summary,stops]=routes[i];document.querySelector('#day').textContent=title;document.querySelector('#summary').textContent=summary;map.replaceChildren();list.replaceChildren();
+ [...tabs.children].forEach((b,j)=>b.setAttribute('aria-pressed',i===j));
+ const ids=[...new Set(stops.map(s=>s[0]))],xs=ids.map(id=>venues[id][2]),ys=ids.map(id=>venues[id][1]);
+ const select=document.querySelector('#spot');
+ select.replaceChildren(new Option('구간 전체',''),...ids.map(id=>new Option(venues[id][0],id)));
+ const focusMap=routeLayer(stops,ids);
+ function showStreetMap(id){
+  focusMap(id);
+  const target=id||ids[0];
+  document.querySelector('#largemap').href='https://www.openstreetmap.org/?mlat='+venues[target][1]+'&mlon='+venues[target][2]+'#map=16/'+venues[target][1]+'/'+venues[target][2];
+ }
+ select.onchange=()=>showStreetMap(select.value);showStreetMap('');
+ const x0=Math.min(...xs),y1=Math.max(...ys),scale=Math.min(220/(Math.max(...xs)-x0),285/(y1-Math.min(...ys))*0.93);
+ const pos=id=>[25+(venues[id][2]-x0)*scale,26+(y1-venues[id][1])*scale/0.93];
+ stops.slice(1).forEach((s,j)=>{const [x,y]=pos(stops[j][0]),[u,v]=pos(s[0]);mark('line',{x1:x,y1:y,x2:u,y2:v,stroke:'#4b8077','stroke-width':2})});
+ // Spread numbered labels into separate rows even where nearby points coincide at city scale.
+ const sorted=ids.slice().sort((a,b)=>pos(a)[1]-pos(b)[1]);
+ sorted.forEach((id,j)=>{const [x,y]=pos(id),row=23+j*(302/Math.max(1,sorted.length-1)),number=ids.indexOf(id)+1,color=venues[id][4]?'#a14820':'#205951';
+ mark('polyline',{points:x+','+y+' 258,'+row+' 272,'+row,fill:'none',stroke:'#8c9e94','stroke-width':1});mark('circle',{cx:x,cy:y,r:4,fill:color});mark('text',{x:276,y:row+5,fill:color,'font-size':15,'font-weight':650},number+' '+venues[id][0]);});
+ // Give each unique leg a time label anchored to the midpoint of its line.
+ const used=[],seen=new Set();
+ stops.slice(1).forEach(([id,,duration],j)=>{const from=stops[j][0],key=[id,from].sort().join('|');if(seen.has(key))return;seen.add(key);
+ const [x,y]=pos(id),[u,v]=pos(from),mx=(x+u)/2,my=(y+v)/2;
+ const tx=Math.max(60,Math.min(202,mx));let ty=Math.max(13,Math.min(325,my));
+ for(let delta=0;delta<350;delta+=17){const choice=[ty-delta,ty+delta].find(n=>n>10&&n<334&&used.every(r=>Math.abs(n-r)>16));if(choice!==undefined){ty=choice;break;}}
+ used.push(ty);mark('line',{x1:mx,y1:my,x2:tx,y2:ty,stroke:'#457568'});mark('rect',{x:tx-56,y:ty-8,width:112,height:16,rx:4,fill:'#174f46'});mark('text',{x:tx,y:ty+4,'text-anchor':'middle',fill:'white','font-size':11},duration);});
+ stops.forEach(([id,time,duration,note],j)=>{const [name,,,address,price,status,source]=venues[id],a=document.createElement('article');
+ const link='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address+' Hong Kong');
+ a.innerHTML=(duration?'<small>↓ '+venues[stops[j-1][0]][0]+'에서 '+duration+'</small>':'')+'<h3><span class="num">'+(ids.indexOf(id)+1)+'</span>　'+time+' · '+name+'</h3>'+(price?'<p><b>'+price+'</b><br>'+status+'</p>':'')+(note?'<p>'+note+'</p>':'')+'<a href="'+link+'">지도 위치</a>'+(source?'　<a href="'+source+'">매장 정보</a>':'');if(j){const go=document.createElement('a');go.textContent='　구간 길찾기';go.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[stops[j-1][0]][3]+' Hong Kong',destination:address+' Hong Kong',travelmode:duration.startsWith('택시')?'driving':duration.startsWith('도보 ')&&!duration.includes('MTR')?'walking':'transit'});a.append(go);}const locate=document.createElement('button');locate.textContent='이곳 지도 보기';locate.style.marginLeft='8px';locate.onclick=()=>{select.value=id;showStreetMap(id);select.scrollIntoView({block:'start'});};a.append(locate);list.append(a)});
+}
+const routeChoice=document.querySelector('#route-choice');
+routeChoice.onchange=()=>render(Number(routeChoice.value));
+routes.forEach((r,i)=>{routeChoice.add(new Option(r[0],String(i)));const b=document.createElement('button');b.textContent=r[0];b.onclick=()=>render(i);tabs.append(b)});render(1);
+</script></html>

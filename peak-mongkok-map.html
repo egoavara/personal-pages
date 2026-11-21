@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>침사추이에서 피크와 몽콕까지 · 가족 여행 지도</title>
+<style>
+*{box-sizing:border-box}body{margin:auto;max-width:1160px;padding:24px;background:#faf7ee;color:#193e37;font:16px/1.65 "Malgun Gothic",sans-serif;word-break:keep-all}h1{font-size:clamp(28px,5vw,48px);line-height:1.2;margin:6px 0 12px;letter-spacing:-.04em}header{border-bottom:3px solid #19574e;padding-bottom:16px}main{display:grid;grid-template-columns:1.35fr 1fr;gap:24px;margin-top:16px}h2,h3{margin:12px 0 5px}p{margin:6px 0}button{background:transparent;color:#1d4942;border:1px solid #728b80;border-radius:5px;padding:9px;cursor:pointer;font:inherit}button[aria-pressed=true]{background:#174f46;color:white}nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}svg{display:block;background:#e2ece8;width:100%;max-height:60vh}svg text{font:bold 14px sans-serif;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}li{margin:8px 0}a{color:#095e52}small{color:#465f56}aside{border-top:2px solid #9e5529;margin-top:18px}footer{margin-top:24px} @media(max-width:720px){main{display:block}body{padding:16px}svg{max-height:52vh}}
+</style>
+<header><small>홍콩 가족 여행　·　2027. 1. 22 금 — 1. 24 일</small><h1>침사추이에서 피크와 몽콕까지</h1><p>금요일은 항구에서 야경을 보고, 토요일은 피크트램으로 산에 오른 뒤 몽콕 시장에서 저녁을 보내요.</p></header>
+<main><p style="grid-column:1/-1"><a href="hong-kong-family-guide.html">식당 위치·4인 예산·예약 정보가 포함된 전체 일정표 →</a></p><section><nav aria-label="지도 경로"><button data-mode="fri">금 · 침사추이</button><button data-mode="sat">토 · 피크와 몽콕</button><button data-mode="extra">토 · 딩딩 추가</button></nav>
+<svg id="map" role="img" aria-label="홍콩 여행 경유지와 이동 순서 지도"></svg><small>북쪽이 위입니다. 해안선은 단순화했으며 선은 방문 순서를 나타냅니다.</small></section>
+<section aria-live="polite"><h2 id="heading"></h2><ol id="steps"></ol><details><summary>대기·도보 시간 상세</summary><ul id="times"></ul></details></section></main>
+<aside><h2>딩딩은 언제 끼우면 좋을까?</h2><p>피크에서 내려온 뒤 <b>센트럴의 뱅크 스트리트 → 애드미럴티의 퍼시픽 플레이스</b> 구간을 동쪽 방향 2층 노면전차로 타세요. 애드미럴티역에서도 췬완선으로 몽콕까지 한 번에 가요. 도보와 대기를 포함해 기본 일정에 <b>30~45분의 여유</b>를 더 잡았어요. 피크 하산이 늦어지면 센트럴역에서 바로 몽콕으로 가세요.</p><p>일반 딩딩은 뒤로 타고 앞문에서 내릴 때 결제해요. 현재 1회 성인 HK$3.30, 만 65세 이상 HK$1.50이며 옥토퍼스·카드·현금 사용이 가능해요. 현금은 거스름돈이 없어요. <a href="https://www.hktramways.com/en/schedules-fares/">공식 요금</a> · <a href="https://www.hktramways.com/en/interactive-map/">정류장 지도</a></p></aside>
+<footer><b>1월 24일 일요일</b>　09:15 힐뷰에서 공항행 택시 출발 권장 → 10:40까지 공항 도착 목표 → 13:40 YP802 출발 → 18:15 인천 도착. 관광 시각은 계획용이며 주말 대기와 교통에 따라 달라져요. <a href="https://www.thepeak.com.hk/en/getting-to-the-peak/location">피크트램 승차장</a> · <a href="https://webstore.thepeak.com.hk/">공식 예매</a> · <a href="https://www.starferry.com.hk/en/service">스타페리</a></footer>
+<script>
+const places={
+ hotel:[22.3015,114.1744,'힐뷰',9,-8],clock:[22.2936,114.1695,'시계탑',9,18],stars:[22.2931,114.1741,'스타의 거리',9,18],
+ pier:[22.2936,114.1689,'침사추이 선착장',8,17],central:[22.2877,114.1602,'센트럴 선착장',-87,-8],
+ base:[22.2777,114.1594,'피크트램 하부역',10,15],peak:[22.2711,114.1498,'피크 타워',8,17],
+ station:[22.2819,114.158,'센트럴역',-66,0],market:[22.3184,114.1705,'몽콕 시장',9,5],
+ bank:[22.2803,114.1604,'뱅크 스트리트',-98,-5],admiralty:[22.2781,114.165,'애드미럴티',8,-4]};
+const plans={
+ fri:{title:'금요일 · 침사추이 해안 산책',route:['hotel','stars','clock','hotel'],zoom:16,steps:['11:55 홍콩 도착. 힐뷰에 짐을 놓고 14:00 마스터 콘지에서 죽으로 점심.','17:00 스타의 거리에서 시계탑 방향으로 산책하며 홍콩섬 야경을 봐요.','18:30 오션터미널 G층 맥스 누들에서 완탕면 후 힐뷰로 복귀해요.']},
+ sat:{title:'토요일 · 피크트램 왕복과 몽콕 시장',route:['hotel','pier','central','base','peak','base','station','market','hotel'],zoom:13,steps:['08:00 와소 카페에서 아침 → 09:00 출발 → 침사추이 선착장 → 센트럴행 스타페리.','10:00 전후 센트럴 선착장에서 택시로 가든로드 33번지 하부역 이동 → 피크트램으로 정상.','11:30~13:30 전망 감상과 피크 갤러리아 멘와빙텡 점심. 피크트램으로 하산해 센트럴역으로 이동해요.','14:30 전후 췬완선 몽콕역 하차 목표. 파윤 스트리트 운동화 거리 → 카페 → 레이디스 마켓.','18:00 찬키 영업 확인 후 거위구이 (미확인 시 키슨) → 택시로 힐뷰 복귀.']},
+ extra:{title:'토요일 · 피크 하산 후 딩딩 추가',route:['hotel','pier','central','base','peak','base','bank','admiralty','market','hotel'],zoom:13,steps:['08:00 와소 카페에서 아침. 09:00~13:30 기본 일정처럼 센트럴행 페리와 피크트램을 타고 정상 멘와빙텡에서 점심을 먹어요.','하산 후 뱅크 스트리트 정류장까지 걸어가 동쪽 방향 딩딩에 탑승해요.','퍼시픽 플레이스에서 하차 → 애드미럴티역으로 걸어가 췬완선 몽콕 방면 탑승.','15:00~15:30 몽콕 도착 목표. 시장과 운동화 거리를 보고 찬키 영업 확인 후 저녁 식사 (미확인 시 키슨) 후 호텔로 돌아가요.']}};
+const svg=document.querySelector('#map'),ns='http://www.w3.org/2000/svg';
+const airport='공항 ↔ 힐뷰 택시 35~55분 (입국·짐 찾기·배차 별도). 일요일 귀국길도 같은 범위로 계획하세요.';
+const morning=['힐뷰 → 침사추이 선착장 도보 20~30분','침사추이 → 센트럴 페리 약 9분, 승하선·대기 포함 15~25분','센트럴 선착장 → 피크트램 하부역 택시 10~20분 (배차 별도)','하부역 ↔ 정상 피크트램 편도 탑승 약 6~10분. 토요일은 대기 포함 편도 25~60분을 배정하고, 정상 전망·점심은 별도로 1시간 30분~2시간'];
+const evening=['몽콕역 → 운동화 거리 도보 5~10분 → 레이디스 마켓까지 도보 3~8분. 쇼핑·카페는 2~3시간 별도','몽콕 → 힐뷰 택시 10~25분 (배차 별도)'];
+const times={fri:[airport,'힐뷰 → 스타의 거리 도보 20~30분, 택시 5~15분','스타의 거리 → 시계탑 도보 10~20분, 야경·사진 포함 40~60분','시계탑 → 힐뷰 도보 20~30분 (식사 제외, 마지막 오르막)'],sat:[...morning,'하부역 → 센트럴역 도보 10~15분','센트럴역 → 몽콕역 MTR 20~30분 (대기·역내 이동 포함)',...evening],extra:[...morning,'하부역 → 뱅크 스트리트 도보 8~15분','뱅크 스트리트 → 퍼시픽 플레이스 딩딩 탑승 5~10분, 대기 포함 10~25분','퍼시픽 플레이스 → 애드미럴티역 도보 5~10분 → 몽콕역 MTR 20~30분 (대기·역내 이동 포함)',...evening]};
+function shape(tag,attrs){const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);svg.append(el);return el}
+const legLabels={
+ clock_hotel:'도보 20~30분',stars_clock:'도보 10~20분',hotel_stars:'도보 20~30분',
+ hotel_pier:'도보 20~30분',pier_central:'페리 15~25분',central_base:'택시 10~20분',
+ base_peak:'트램 편도 25~60분',base_station:'도보 10~15분',station_market:'MTR 20~30분',
+ market_hotel:'택시 10~25분',base_bank:'도보 8~15분',bank_admiralty:'딩딩 10~25분',admiralty_market:'도보·MTR 25~40분'};
+function labelLegs(route,points,x,y,w,h){
+ const occupied=Array.from(svg.querySelectorAll('text,circle'),el=>el.getBBox());
+ for(let i=1;i<route.length;i++){
+  const label=legLabels[route[i-1]+'_'+route[i]];
+  if(!label)continue; // Both directions of the Peak Tram share one line.
+  const [ax,ay]=points[i-1],[bx,by]=points[i];
+  const text=shape('text',{'text-anchor':'middle',fill:'#fff'});
+  text.textContent=label;text.style.stroke='none';text.style.fontSize='12px';
+  const width=text.getComputedTextLength()+12,height=20;
+  let chosen;
+  for(const offset of [0,14,-14,28,-28,42,-42,56,-56,78,-78,98,-98]){
+   for(const fraction of [.5,.34,.66,.2,.8]){
+    const mx=ax+(bx-ax)*fraction-x,my=ay+(by-ay)*fraction-y;
+    const length=Math.hypot(bx-ax,by-ay);
+    const cx=Math.max(width/2+3,Math.min(w-width/2-3,mx-offset*(by-ay)/length));
+    const cy=Math.max(12,Math.min(h-12,my+offset*(bx-ax)/length));
+    const box={x:cx-width/2,y:cy-height/2,width,height};
+    if(occupied.some(r=>box.x<r.x+r.width+3&&box.x+width+3>r.x&&box.y<r.y+r.height+3&&box.y+height+3>r.y))continue;
+    chosen={cx,cy,mx,my,box};break;
+   }
+   if(chosen)break;
+  }
+  if(!chosen){
+   const mx=(ax+bx)/2-x,my=(ay+by)/2-y;
+   const slots=[];
+   for(let top=4;top+height<h;top+=6){
+    for(let left=4;left+width<w;left+=8){
+     if(occupied.some(r=>left<r.x+r.width+3&&left+width+3>r.x&&top<r.y+r.height+3&&top+height+3>r.y))continue;
+     slots.push({cx:left+width/2,cy:top+height/2,mx,my,box:{x:left,y:top,width,height}});
+    }
+   }
+   chosen=slots.sort((a,b)=>Math.hypot(a.cx-mx,a.cy-my)-Math.hypot(b.cx-mx,b.cy-my))[0]??{cx:mx,cy:my,mx,my,box:{x:mx-width/2,y:my-height/2,width,height}};
+  }
+  const {cx,cy,mx,my,box}=chosen;
+  const color=route[i]==='admiralty'?'#963f11':'#154d45';
+  shape('line',{x1:mx,y1:my,x2:cx,y2:cy,stroke:color,'stroke-width':1.3});
+  shape('rect',{...box,rx:5,fill:color});
+  text.setAttribute('x',cx);text.setAttribute('y',cy+4);svg.append(text);occupied.push(box);
+ }
+}
+function draw(mode){
+ const p=plans[mode],scale=256*2**p.zoom;
+ document.querySelector('#times').replaceChildren(...times[mode].map(value=>{const li=document.createElement('li');li.textContent=value;return li}));
+ const points=p.route.map(id=>{const [lat,lon]=places[id];return [(lon+180)/360*scale,(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*scale]});
+ const x=Math.floor(Math.min(...points.map(v=>v[0]))-110),y=Math.floor(Math.min(...points.map(v=>v[1]))-40);
+ const w=Math.ceil(Math.max(...points.map(v=>v[0]))-x+110),h=Math.ceil(Math.max(...points.map(v=>v[1]))-y+45);
+ svg.replaceChildren();svg.setAttribute('viewBox','0 0 '+w+' '+h);
+ function project(lat,lon){return [(lon+180)/360*scale-x,(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*scale-y]}
+ shape('rect',{width:w,height:h,fill:'#c5e3e7'});
+ const shores=[
+ [[22.35,114.15],[22.31,114.155],[22.304,114.160],[22.300,114.166],[22.294,114.167],[22.2928,114.169],[22.2925,114.173],[22.293,114.175],[22.295,114.179],[22.301,114.181],[22.309,114.195],[22.35,114.21]],
+ [[22.28,114.10],[22.29,114.14],[22.289,114.153],[22.2877,114.1602],[22.284,114.168],[22.282,114.174],[22.284,114.185],[22.292,114.203],[22.24,114.21],[22.24,114.10]]];
+ for(const shore of shores)shape('polygon',{points:shore.map(([lat,lon])=>project(lat,lon).join(',')).join(' '),fill:'#f2efdf',stroke:'#94b5ad','stroke-width':1.2});
+ const regions=mode==='fri'?[[22.298,114.171,'침사추이'],[22.2922,114.171,'빅토리아 하버']]:[[22.311,114.169,'구룡반도'],[22.290,114.150,'빅토리아 하버'],[22.273,114.161,'홍콩섬']];
+ for(const [lat,lon,label] of regions){const [lx,ly]=project(lat,lon);const el=shape('text',{x:lx,y:ly,fill:'#536f6c','text-anchor':'middle'});el.style.fontSize='12px';el.style.stroke='none';el.textContent=label}
+ points.forEach(([a,b],i)=>{if(!i)return;const [c,d]=points[i-1],extra=p.route[i]==='admiralty';shape('line',{x1:c-x,y1:d-y,x2:a-x,y2:b-y,stroke:extra?'#b04a13':'#146057','stroke-width':extra?5:3,'stroke-dasharray':extra?'4 2':'none'})});
+ p.route.forEach((id,i)=>{if(p.route.indexOf(id)!==i)return;const [a,b]=points[i],[,,name,dx,dy]=places[id];shape('circle',{cx:a-x,cy:b-y,r:4,fill:'#143f37',stroke:'white'});shape('text',{x:a-x+dx,y:b-y+dy}).textContent=name});
+ labelLegs(p.route,points,x,y,w,h);
+ document.querySelector('#heading').textContent=p.title;document.querySelector('#steps').replaceChildren(...p.steps.map(t=>{const li=document.createElement('li');li.textContent=t;return li}));
+ document.querySelectorAll('button').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.mode===mode)));
+}
+document.querySelectorAll('button').forEach(btn=>btn.onclick=()=>draw(btn.dataset.mode));draw('sat');
+</script></html>
