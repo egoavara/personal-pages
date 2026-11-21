@@ -110,7 +110,7 @@ function googleSearch(id){
 // Place each time chip on its own line, keeping stops and nearby routes legible.
 function placeLegChips(legs, stops){
  const project=ll=>streets.latLngToContainerPoint(ll);
- const paths=legs.map(leg=>leg.line.getLatLngs().map(project));
+ const paths=legs.map(leg=>L.LineUtil.simplify(leg.line.getLatLngs().map(project),1));
  const occupied=stops.map(ll=>{
   const {x,y}=project(ll);
   return [x-24,y-39,x+24,y+23];
@@ -124,6 +124,8 @@ function placeLegChips(legs, stops){
   const w=element.offsetWidth/2+3,h=element.offsetHeight/2+3;
   const lengths=path.slice(1).map((p,k)=>p.distanceTo(path[k]));
   const total=lengths.reduce((a,b)=>a+b,0);
+  const start=path[0], end=path[path.length-1], span=end.subtract(start);
+  const straightLength=start.distanceTo(end);
   let best,score=Infinity;
   for(let step=1;step<40;step++){
    const fraction=step/40;
@@ -145,7 +147,18 @@ function placeLegChips(legs, stops){
     const x=point.x+dx,y=point.y+dy,rect=[x-w,y-h,x+w,y+h];
     const covered=occupied.reduce((sum,r)=>sum+overlap(rect,r),0);
     const clipped=Math.max(0,4*w*h-overlap(rect,[0,0,size.x,size.y]));
-    const cost=routeCost+Math.hypot(dx,dy)*4+covered*100+clipped*80;
+    const center=L.point(x,y);
+    // Keep displaced labels alongside their leg instead of past the next stop.
+    const along=((x-start.x)*span.x+(y-start.y)*span.y)/(straightLength||1);
+    const overshoot=Math.max(0,-along,along-straightLength);
+    let nearestOther=Infinity;
+    paths.forEach((other,n)=>{
+     if(n===i)return;
+     for(let m=1;m<other.length;m++)
+      nearestOther=Math.min(nearestOther,L.LineUtil.pointToSegmentDistance(center,other[m-1],other[m]));
+    });
+    const wrongLine=Math.max(0,Math.hypot(dx,dy)-nearestOther);
+    const cost=overshoot*32+wrongLine*10+routeCost+Math.hypot(dx,dy)*4+covered*100+clipped*80;
     if(cost<score){score=cost;best={point,center:L.point(x,y),rect};}
    }
   }
@@ -191,7 +204,7 @@ function routeLayer(stops,ids){
   timeButton.setAttribute('aria-label',j+'구간 '+venues[from][0]+'에서 '+venues[to][0]+' '+duration+' 길찾기');
   L.DomEvent.disableClickPropagation(timeButton);
   timeButton.onclick=e=>{e.stopPropagation();line.openPopup(chip.getLatLng());};
-  const chip=L.tooltip({direction:'center',interactive:true,className:'leg-time'}).setContent(timeButton).setLatLng(endpoints[1]).addTo(overlays);
+  const chip=L.tooltip({permanent:true,direction:'center',interactive:true,className:'leg-time'}).setContent(timeButton).setLatLng(endpoints[1]).addTo(overlays);
   const leader=L.polyline([],{color:'#315c51',weight:1.5,interactive:false}).addTo(overlays);
   legs.push({line,chip,leader});
   refreshLegChips();
