@@ -32,7 +32,7 @@ button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #b45
  main.details-open .bar{position:relative;z-index:3;padding:6px 14px calc(6px + env(safe-area-inset-bottom))}
 }
  .ticket{margin:8px 0}.ticket small{display:block}.ticket a,.leaflet-popup-content .ticket a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:6px;background:#174f46;color:white;font-weight:bold;text-decoration:none}
-.timing-badge{display:block;background:#ffebbd;color:#57380c;border-radius:3px;margin-top:2px;font-weight:bold}</style><main aria-label="홍콩 가족여행 지도와 일정">
+.timing-badge{display:block;background:#ffebbd;color:#57380c;border-radius:3px;margin-top:2px;font-weight:bold}.place-popup .leaflet-popup-content{width:min(300px,calc(100vw - 84px))!important;margin:12px 24px 10px 14px}.place-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.place-links a{min-height:44px}.place-popup .ticket{margin:3px 0}.place-popup .leaflet-popup-content{max-height:calc(100dvh - 185px);overflow-y:auto}</style><main aria-label="홍콩 가족여행 지도와 일정">
 <div class="mobile-nav"><select id="route-choice" aria-label="날짜와 구간"></select><select id="spot" aria-label="지도에서 볼 장소"></select></div><nav id="tabs" hidden></nav>
 <div id="streetmap" aria-label="여행 경로 지도"></div>
 <div class="bar"><button id="toggle" aria-expanded="false" aria-controls="sheet">일정·식당 상세 보기 ↑</button></div>
@@ -61,14 +61,14 @@ const venues={
  k:['키슨 로스트 구스 몽콕점',22.321,114.1678,'Kison Roasted Goose 34 Mong Kok Road','거위구이밥 등 · 4인 예상 약 3.5만~6.9만 원','4인 예약 가능 여부 미확인','https://www.openrice.com/en/hongkong/r-kison-roasted-goose-mong-kok-hong-kong-style-chinese-bbq-r732289']};
 const routes=[
  ['금 · 공항','1/22 금요일 · 11:55 홍콩 도착','09:05 인천 출발 YP801. 입국·수하물 수령 후 이동. 교통편은 선택 사항입니다.',[['a','11:55'],['h','13:20~14:00','택시 약 40분','빨간 시내 택시 1대 약 HK$280~350. A21 버스는 킴벌리 로드 하차 후 도보 약 7분, 대기 포함 60~90분·일반 성인 4명 HK$138.40.']]],
- ['금 · 식사와 야경','1/22 금요일 · 침사추이','마스터 콘지 점심 → 호텔 휴식 → 바닷가 산책 → 맥스 누들 저녁.',[['h','출발'],['m','14:00','도보 5~10분'],['h','15:00','도보 5~10분'],['s','17:00 출발','도보 20~30분'],['c','18:00 전후','도보 10~20분','사진과 야경을 포함하면 해안 산책 40~60분.'],['n','18:30','도보 3~8분'],['h','저녁 후','택시 5~15분']]],
- ['토 · 아침과 피크','1/23 토요일 · 피크트램과 정상 점심','아침 식사 후 센트럴행 페리. 피크트램 편도 시간은 주말 대기 포함 추정치입니다.',[['h','07:50'],['w','08:00','도보 5~10분'],['f','08:50 선착장 도착 목표','도보 15~20분'],['p','09:30 전후','페리 15~25분'],['b','10:00 전후','택시 10~20분'],['t','오전','트램 25~60분'],['l','12:00','도보 3~5분'],['t','13:15 전후','도보 3~5분'],['b','하산','트램 25~60분'],['central','하산 후','도보 10~15분'],['mk','14:30 목표','MTR 20~30분']]],
- ['토 · 몽콕 식당','1/23 토요일 · 시장과 에그타르트','캄와 카페에서 에그타르트를 맛보고 레이디스 마켓을 둘러본 뒤, 18:00에 키슨 로스트 구스 몽콕점에서 저녁을 먹습니다.',[['mk','14:30 전후'],['shoes','오후','도보 5~10분'],['egg','15:45 전후','도보 10~15분'],['market','16:30','도보 8~15분'],['k','18:00','도보 8~15분'],['h','저녁 후','택시 10~25분']]],
- ['토 · 저녁 경로','1/23 토요일 · 키슨에서 저녁','레이디스 마켓 → 키슨 로스트 구스 몽콕점 → 스탠포드 힐뷰.',[['market','시장 구경 후'],['k','18:00','도보 8~15분'],['h','저녁 후','택시 10~25분']]],
+ ['금 · 식사와 야경','1/22 금요일 · 침사추이','마스터 콘지 점심 → 호텔 휴식 → 바닷가 산책 → 맥스 누들 저녁.',[['h','13:50 출발 목표'],['m','14:00','도보 5~10분'],['h','15:00','도보 5~10분'],['s','17:20~17:30','도보 20~30분'],['c','18:00 전후','도보 10~20분','사진과 야경을 포함하면 해안 산책 40~60분.'],['n','18:30','도보 3~8분'],['h','19:35~20:15','택시 5~15분']]],
+ ['토 · 아침과 피크','1/23 토요일 · 피크트램과 정상 점심','아침 식사 후 센트럴행 페리. 피크트램 편도 시간은 주말 대기 포함 추정치입니다.',[['h','07:50 출발'],['w','08:00','도보 5~10분'],['f','08:50 선착장 도착 목표','도보 15~20분'],['p','09:30 전후','페리 15~25분'],['b','10:00 전후','택시 10~20분'],['t','10:25~11:00','트램 25~60분'],['l','12:00','도보 3~5분'],['t','13:15 전후','도보 3~5분'],['b','13:40~14:15','트램 25~60분'],['central','13:50~14:30','도보 10~15분'],['mk','14:10~15:00','MTR 20~30분']]],
+ ['토 · 몽콕 식당','1/23 토요일 · 시장과 에그타르트','캄와 카페에서 에그타르트를 맛보고 레이디스 마켓을 둘러본 뒤, 18:00에 키슨 로스트 구스 몽콕점에서 저녁을 먹습니다.',[['mk','14:30 전후'],['shoes','14:35~14:45','도보 5~10분'],['egg','15:45 전후','도보 10~15분'],['market','16:30','도보 8~15분'],['k','18:00','도보 8~15분'],['h','19:10~19:55','택시 10~25분']]],
+ ['토 · 저녁 경로','1/23 토요일 · 키슨에서 저녁','레이디스 마켓 → 키슨 로스트 구스 몽콕점 → 스탠포드 힐뷰.',[['market','16:30 전후'],['k','18:00','도보 8~15분'],['h','19:10~19:55','택시 10~25분']]],
  ['일 · 귀국','1/24 일요일 · 인천행 YP802','08:00 조식은 자유 선택. 10:40까지 공항 도착 목표 → 13:40 홍콩 출발 → 18:15 인천 도착.',[['h','09:15 출발'],['a','09:50~10:10 예상','택시 35~55분']]]];
 venues.bank=['뱅크 스트리트',22.2803,114.1604,'Bank Street Tram Stop Central'];
 venues.ad=['퍼시픽 플레이스',22.2781,114.165,'Pacific Place tram stop Admiralty'];
-routes.splice(3,0,['토 · 딩딩 선택','1/23 토요일 · 하산 후 선택 구간','기본 동선보다 30~45분 여유를 두세요. 몽콕 도착 후 몽콕 식당 탭으로 이어집니다.',[['b','피크에서 하산'],['bank','하산 후','도보 8~15분'],['ad','동쪽 방면','딩딩 10~25분'],['mk','15:00~15:30','도보·MTR 25~40분']]]);
+routes.splice(3,0,['토 · 딩딩 선택','1/23 토요일 · 하산 후 선택 구간','기본 동선보다 30~45분 여유를 두세요. 몽콕 도착 후 몽콕 식당 탭으로 이어집니다.',[['b','13:40~14:15'],['bank','13:50~14:30','도보 8~15분'],['ad','14:00~14:55','딩딩 10~25분'],['mk','14:25~15:35','도보·MTR 25~40분']]]);
 const tabs=document.querySelector('#tabs'),map=document.querySelector('#map'),list=document.querySelector('#list');
 function mark(tag,attrs,content){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);if(content)el.textContent=content;map.append(el);return el}
 let streets, overlays, drawVersion=0;
@@ -97,11 +97,11 @@ const transportTickets={
  '페리':['스타페리 시간표·요금','침사추이 → 센트럴 정기선은 예약 없이 선착장에서 결제하세요.','https://www.starferry.com.hk/en/service'],
  '딩딩':['딩딩 요금·결제 방법','앞문으로 내릴 때 옥토퍼스나 카드로 결제하세요.','https://www.hktramways.com/en/schedules-fares/']
 };
-function ticketLink(duration=''){
+function ticketLink(duration='',compact=false){
  const ticket=transportTickets[duration.split(' ')[0]];
  if(!ticket)return '';
  const [label,note,url]=ticket;
- return '<div class="ticket"><a href="'+url+'" target="_blank" rel="noopener">'+label+' ↗</a><small>'+note+'</small></div>';
+ return '<div class="ticket"><a href="'+url+'" target="_blank" rel="noopener">'+label+' ↗</a>'+(compact?'':'<small>'+note+'</small>')+'</div>';
 }
 function linkLeg(from,to,time){
  return '<a target="_blank" rel="noopener" href="'+directions(from,to,time)+'">'+venues[from][0]+' → '+venues[to][0]+' · '+time+'<br>Google 지도 길찾기 ↗</a>';
@@ -246,15 +246,24 @@ function routeLayer(stops,ids){
   const [symbol,category]=placeType(id);
   const marker=L.marker(coord(id),{title:category+' · '+venues[id][0],alt:category+' · '+venues[id][0],
    icon:L.divIcon({className:'venue-pin',html:'<span aria-hidden="true">'+symbol+'</span><b class="visit-num">'+visits(stops,id)+'</b>',iconSize:[44,44],iconAnchor:[22,22],popupAnchor:[0,-12]})}).addTo(overlays);
-  const adjacent=new Set(), tickets=new Set();
-  stops.slice(1).forEach(([to,,time],index)=>{const from=stops[index][0];if(from===id||to===id){adjacent.add(linkLeg(from,to,time));tickets.add(ticketLink(time));}});
-  marker.bindPopup('<small>'+symbol+' '+category+'</small><br><strong>'+venues[id][0]+'</strong>'+(venues[id][4]?'<br>'+venues[id][4]:'')+'<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(venues[id][3]+' Hong Kong')+'">장소 상세 지도 ↗</a>'+[...tickets].join('')+googleSearch(id)+[...adjacent].join(''),{maxHeight:165});markers.set(id,marker);
+  const visitsHere=stops.flatMap(([place,time],i)=>place===id?[(i+1)+'번 · '+time]:[]);
+  const tickets=new Set(), legs=[];
+  stops.slice(1).forEach(([to,,time],i)=>{
+   const from=stops[i][0];
+   if(from!==id && to!==id)return;
+   tickets.add(ticketLink(time,true));
+   legs.push('<a href="'+directions(from,to,time)+'" target="_blank" rel="noopener" aria-label="'+venues[from][0]+'에서 '+venues[to][0]+' 길찾기">'+(i+1)+'구간 ↗</a>');
+  });
+  const mapLink='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(venues[id][3]+' Hong Kong');
+  marker.bindPopup('<strong>'+symbol+' '+venues[id][0]+'</strong><small>예상 일정 · 홍콩 현지 시각</small><b>'+visitsHere.join('<br>')+'</b>'+[...tickets].join('')+
+   '<div class="place-links"><a target="_blank" rel="noopener" href="'+mapLink+'">상세 지도 ↗</a>'+googleSearch(id)+'</div><div class="place-links">길찾기 '+legs.join('')+'</div>',
+   {className:'place-popup',maxWidth:350});markers.set(id,marker);
  });
  return id=>{if(id){streets.setView(coord(id),17);markers.get(id).openPopup();}else{streets.closePopup();streets.fitBounds(box,{padding:[35,35],maxZoom:17});}};
 }
 function render(i){
  document.querySelector("#route-choice").value=String(i);
- const [tab,title,summary,stops]=routes[i];document.querySelector('#day').textContent=title;document.querySelector('#summary').textContent=summary;map.replaceChildren();list.replaceChildren();
+ const [tab,title,summary,stops]=routes[i];document.querySelector('#day').textContent=title;document.querySelector('#summary').textContent=summary+' 시각은 홍콩 현지 기준 예상 일정입니다.';map.replaceChildren();list.replaceChildren();
  [...tabs.children].forEach((b,j)=>b.setAttribute('aria-pressed',i===j));
  const ids=[...new Set(stops.map(s=>s[0]))],xs=ids.map(id=>venues[id][2]),ys=ids.map(id=>venues[id][1]);
  const select=document.querySelector('#spot');
