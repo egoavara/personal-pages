@@ -107,6 +107,48 @@ function visits(stops,id){
 function googleSearch(id){
  return '<a target="_blank" rel="noopener" href="https://www.google.com/search?'+new URLSearchParams({q:venues[id][3]+' Hong Kong'})+'">구글 검색에서 보기 ↗</a>';
 }
+// Place each time chip on its own line, keeping stops and nearby routes legible.
+function placeLegChips(legs, stops){
+ const project=ll=>streets.latLngToContainerPoint(ll);
+ const paths=legs.map(leg=>leg.line.getLatLngs().map(project));
+ const occupied=stops.map(ll=>{
+  const {x,y}=project(ll);
+  return [x-24,y-39,x+24,y+23];
+ });
+ const size=streets.getSize();
+ const overlap=(a,b)=>Math.max(0,Math.min(a[2],b[2])-Math.max(a[0],b[0]))*
+                       Math.max(0,Math.min(a[3],b[3])-Math.max(a[1],b[1]));
+ paths.forEach((path,i)=>{
+  const chip=legs[i].chip, element=chip.getElement();
+  if(!element)return;
+  const w=element.offsetWidth/2+3,h=element.offsetHeight/2+3;
+  const lengths=path.slice(1).map((p,k)=>p.distanceTo(path[k]));
+  const total=lengths.reduce((a,b)=>a+b,0);
+  let best,score=Infinity;
+  for(let step=1;step<40;step++){
+   const fraction=step/40;
+   let remaining=total*fraction,k=0;
+   while(k<lengths.length-1 && remaining>lengths[k])remaining-=lengths[k++];
+   const a=path[k], vector=path[k+1].subtract(a);
+   const point=a.add(vector.multiplyBy(remaining/(lengths[k]||1)));
+   const {x,y}=point, rect=[x-w,y-h,x+w,y+h];
+   let cost=Math.abs(fraction-0.78)*25;
+   cost+=occupied.reduce((sum,r)=>sum+overlap(rect,r),0)*3;
+   cost+=4*w*h-overlap(rect,[0,0,size.x,size.y]);
+   paths.forEach((other,n)=>{
+    if(n===i)return;
+    let distance=Infinity;
+    for(let m=1;m<other.length;m++)
+     distance=Math.min(distance,L.LineUtil.pointToSegmentDistance(point,other[m-1],other[m]));
+    cost+=Math.max(0,w-distance)*4;
+   });
+   if(cost<score){score=cost;best={point,rect};}
+  }
+  chip.setLatLng(streets.containerPointToLatLng(best.point));
+  occupied.push(best.rect);
+ });
+}
+let refreshLegChips;
 function routeLayer(stops,ids){
  const version=++drawVersion;
  const coord=id=>venues[id].slice(1,3);
@@ -122,11 +164,16 @@ function routeLayer(stops,ids){
  if(overlays)overlays.remove();
  overlays=L.layerGroup().addTo(streets);
 
+ const legs=[];
+ if(refreshLegChips)streets.off('moveend resize',refreshLegChips);
+ let frame;
+ refreshLegChips=()=>{
+  cancelAnimationFrame(frame);
+  frame=requestAnimationFrame(()=>{if(version===drawVersion)placeLegChips(legs,box);});
+ };
+ streets.on('moveend resize',refreshLegChips);
  for(let j=1;j<stops.length;j++){
   const from=stops[j-1][0],to=stops[j][0],duration=stops[j][2];
-  const key=[from,to].sort().join(':')+duration;
-  const sameLeg=stops.slice(1).map(([dest,,time],i)=>[stops[i][0],dest].sort().join(':')+time===key?i+1:0).filter(Boolean);
-  const offsetY=(sameLeg.indexOf(j)-(sameLeg.length-1)/2)*34;
   const endpoints=[coord(from),coord(to)];
   const line=L.polyline(endpoints,{color:'#086558',weight:4,dashArray:'6 6'}).addTo(overlays);
   const flow=L.polyline(endpoints,{className:'route-flow',color:'#ffdf91',weight:4.5,opacity:1,lineCap:'round',dashArray:'0.1 63.9',interactive:false}).addTo(overlays);
@@ -135,13 +182,15 @@ function routeLayer(stops,ids){
   timeButton.textContent=j+'구간 · '+duration;
   timeButton.setAttribute('aria-label',j+'구간 '+venues[from][0]+'에서 '+venues[to][0]+' '+duration+' 길찾기');
   L.DomEvent.disableClickPropagation(timeButton);
-  timeButton.onclick=e=>{e.stopPropagation();line.openPopup(line.getCenter());};
-  line.bindTooltip(timeButton,{offset:[0,offsetY],permanent:true,direction:'center',interactive:true,className:'leg-time'});
+  timeButton.onclick=e=>{e.stopPropagation();line.openPopup(chip.getLatLng());};
+  const chip=L.tooltip({direction:'center',interactive:true,className:'leg-time'}).setContent(timeButton).setLatLng(endpoints[1]).addTo(overlays);
+  legs.push({line,chip});
+  refreshLegChips();
   const profile=duration.startsWith('택시')?'car':duration.startsWith('도보 ')&&!duration.includes('MTR')?'foot':null;
   if(!profile)continue;
   const url='https://routing.openstreetmap.de/routed-'+profile+'/route/v1/driving/'+endpoints.map(([lat,lon])=>lon+','+lat).join(';')+'?overview=full&geometries=geojson';
   if(!roadCache.has(url))roadCache.set(url,fetch(url).then(r=>r.json()).then(data=>data.routes[0].geometry.coordinates.map(([lon,lat])=>[lat,lon])).catch(()=>{roadCache.delete(url);return null}));
-  roadCache.get(url).then(path=>{if(path&&version===drawVersion){line.setLatLngs(path);flow.setLatLngs(path);line.setStyle({dashArray:null});line.closeTooltip();line.openTooltip();}});
+  roadCache.get(url).then(path=>{if(path&&version===drawVersion){line.setLatLngs(path);flow.setLatLngs(path);line.setStyle({dashArray:null});refreshLegChips();}});
  }
 
  const markers=new Map();
