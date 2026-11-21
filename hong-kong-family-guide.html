@@ -12,10 +12,21 @@
  .leaflet-control-attribution{max-width:235px;line-height:1.1;font-size:9px}.leg-time{font-size:12px}
 }
 body{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}header{padding:8px 16px}header h1{font-size:20px}header small{font-size:12px}main{max-width:none;margin:0;padding:0;position:relative;display:flex;flex:1;min-height:0;flex-direction:column}.mobile-nav{display:flex;gap:8px;padding:6px 12px;align-items:center}.mobile-nav select{min-width:0;flex:1;max-width:440px;height:42px;font:inherit}#spot{max-width:42%}.leg-time{pointer-events:auto;cursor:pointer}.leg-time button{font:inherit;color:inherit;background:none;border:0;padding:3px 5px}.leg-time:focus-within{outline:2px solid #a34816}#streetmap{flex:1;min-height:0;height:auto!important;z-index:0;background:#eef1ec}.bar{padding:6px 14px max(6px,env(safe-area-inset-bottom));background:#fbf8ef}.bar button{width:100%;background:#174f46;color:white}.sheet{overflow:auto;overscroll-behavior:contain;max-height:40vh;max-height:40dvh;padding:0 max(16px,calc((100% - 860px)/2));border-top:1px solid #adbbb3}.sheet[hidden],#tabs{display:none}.leaflet-popup-content a{display:block;padding:5px 0}.sheet footer{padding-bottom:12px}
-.venue-pin span{display:grid;place-items:center;width:29px;height:29px;background:#fffdf5;border:2px solid #174f46;border-radius:50%;font:16px/1 system-ui;box-shadow:0 1px 4px #173f3855}.venue-pin:focus-visible{outline:3px solid #bb581f}</style><header><small>2027. 1. 22–24 · 성인 4명</small><h1>홍콩 여행 경로와 식당</h1></header><main>
+.venue-pin span{display:grid;place-items:center;width:29px;height:29px;background:#fffdf5;border:2px solid #174f46;border-radius:50%;font:16px/1 system-ui;box-shadow:0 1px 4px #173f3855}.venue-pin:focus-visible{outline:3px solid #bb581f}/* Keep controls finger-sized while leaving the map available on short screens. */
+.mobile-nav select,#spot,.bar button{min-height:46px;font-size:17px}.bar button{font-weight:700}
+.sheet article small,.sheet small{font-size:15px;color:#365249}
+.sheet article a,.sheet article button,.leaflet-popup-content a{min-height:44px;display:inline-flex;align-items:center;margin-right:6px}
+.leaflet-popup-content{font-size:16px;line-height:1.5}.leaflet-popup-content small{display:block;font-size:15px}
+.leaflet-popup-content a{display:flex}.leaflet-container a.leaflet-popup-close-button{width:36px;height:36px;font-size:24px}
+.venue-pin span{width:36px;height:36px;font-size:21px}.venue-pin{display:grid;place-items:center}
+.leg-time button{font-size:14px;line-height:1.25;min-height:28px;padding:2px 6px}
+.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #b45118;outline-offset:2px}
+@media(max-width:760px){header small{font-size:14px}.sheet{max-height:43dvh}.sheet article p{font-size:17px}.bar{padding-bottom:max(6px,env(safe-area-inset-bottom))}}
+</style><header><small>2027. 1. 22–24 · 성인 4명</small><h1>홍콩 여행 경로와 식당</h1></header><main>
 <div class="mobile-nav"><select id="route-choice" aria-label="날짜와 구간"></select><select id="spot" aria-label="지도에서 볼 장소"></select></div><nav id="tabs" hidden></nav>
 <div id="streetmap" aria-label="여행 경로 지도"></div>
-<div class="bar"><button id="toggle" aria-expanded="false" aria-controls="sheet">상세 경로 보기 ↑</button></div>
+<div class="bar"><button id="toggle" aria-expanded="false" aria-controls="sheet">일정·식당 상세 보기 ↑</button></div>
 <section class="sheet" id="sheet" hidden><h2 id="day"></h2><p id="summary"></p><section id="list"></section><details><summary>구간별 시간 약도</summary><svg viewBox="0 0 480 350" id="map" role="img" aria-label="경유지와 시간"></svg></details><footer>4인 예산 기준 HK$1≈172원 · <a id="largemap" target="_blank" rel="noopener">OpenStreetMap 열기</a></footer></section></main>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -58,7 +69,7 @@ const sheet=document.querySelector('#sheet'),toggle=document.querySelector('#tog
 function openDetails(open){
  sheet.hidden=!open;
  toggle.setAttribute('aria-expanded',String(open));
- toggle.textContent=open?'상세 경로 닫기 ↓':'상세 경로 보기 ↑';
+ toggle.textContent=open?'상세 경로 닫기 ↓':'일정·식당 상세 보기 ↑';
  if(streets)streets.invalidateSize();
 }
 toggle.onclick=()=>openDetails(sheet.hidden);
@@ -120,7 +131,7 @@ function routeLayer(stops,ids){
  ids.forEach((id,j)=>{
   const [symbol,category]=placeType(id);
   const marker=L.marker(coord(id),{title:category+' · '+venues[id][0],alt:category+' · '+venues[id][0],
-   icon:L.divIcon({className:'venue-pin',html:'<span aria-hidden="true">'+symbol+'</span>',iconSize:[29,29],iconAnchor:[14,14],popupAnchor:[0,-12]})}).addTo(overlays);
+   icon:L.divIcon({className:'venue-pin',html:'<span aria-hidden="true">'+symbol+'</span>',iconSize:[44,44],iconAnchor:[22,22],popupAnchor:[0,-12]})}).addTo(overlays);
   const adjacent=new Set();
   stops.slice(1).forEach(([to,,time],index)=>{const from=stops[index][0];if(from===id||to===id)adjacent.add(linkLeg(from,to,time));});
   marker.bindPopup('<small>'+symbol+' '+category+'</small><br><strong>'+venues[id][0]+'</strong>'+(venues[id][4]?'<br>'+venues[id][4]:'')+'<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(venues[id][3]+' Hong Kong')+'">장소 상세 지도 ↗</a>'+[...adjacent].join(''),{maxHeight:165});markers.set(id,marker);
@@ -161,5 +172,25 @@ function render(i){
 }
 const routeChoice=document.querySelector('#route-choice');
 routeChoice.onchange=()=>{openDetails(false);sheet.scrollTop=0;render(Number(routeChoice.value));};
-routes.forEach((r,i)=>{routeChoice.add(new Option(r[0],String(i)));const b=document.createElement('button');b.textContent=r[0];b.onclick=()=>render(i);tabs.append(b)});render(1);
+routes.forEach((r,i)=>{routeChoice.add(new Option(r[0],String(i)));const b=document.createElement('button');b.textContent=r[0];b.onclick=()=>render(i);tabs.append(b)});
+const viewKey='hong-kong-family-guide:view:1';
+function rememberView(){
+ try{
+  const center=streets?.getCenter();
+  sessionStorage.setItem(viewKey,JSON.stringify({route:routeChoice.value,spot:document.querySelector('#spot').value,open:!sheet.hidden,scroll:sheet.scrollTop,center:center&&[center.lat,center.lng],zoom:streets?.getZoom()}));
+ }catch{}
+}
+let saved;
+try{saved=JSON.parse(sessionStorage.getItem(viewKey));}catch{}
+const initial=Number(saved?.route);
+render(Number.isInteger(initial)&&routes[initial]?initial:1);
+if(saved){
+ const spot=document.querySelector('#spot');
+ if(saved.spot&&[...spot.options].some(o=>o.value===saved.spot)){spot.value=saved.spot;spot.onchange();}
+ openDetails(saved.open===true);
+ if(streets&&Array.isArray(saved.center)&&saved.center.length===2&&saved.center.every(Number.isFinite)&&Number.isFinite(saved.zoom))streets.setView(saved.center,saved.zoom,{animate:false});
+ sheet.scrollTop=saved.scroll||0;
+}
+window.addEventListener('pagehide',rememberView);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)rememberView()});
 </script></html>
