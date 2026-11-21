@@ -32,7 +32,7 @@ button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #b45
  main.details-open .bar{position:relative;z-index:3;padding:6px 14px calc(6px + env(safe-area-inset-bottom))}
 }
  .ticket{margin:8px 0}.ticket small{display:block}.ticket a,.leaflet-popup-content .ticket a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:6px;background:#174f46;color:white;font-weight:bold;text-decoration:none}
-</style><main aria-label="홍콩 가족여행 지도와 일정">
+.timing-badge{display:block;background:#ffebbd;color:#57380c;border-radius:3px;margin-top:2px;font-weight:bold}</style><main aria-label="홍콩 가족여행 지도와 일정">
 <div class="mobile-nav"><select id="route-choice" aria-label="날짜와 구간"></select><select id="spot" aria-label="지도에서 볼 장소"></select></div><nav id="tabs" hidden></nav>
 <div id="streetmap" aria-label="여행 경로 지도"></div>
 <div class="bar"><button id="toggle" aria-expanded="false" aria-controls="sheet">일정·식당 상세 보기 ↑</button></div>
@@ -63,7 +63,7 @@ const venues={
 const routes=[
  ['금 · 공항','1/22 금요일 · 11:55 홍콩 도착','09:05 인천 출발 YP801. 입국·수하물 수령 후 이동. 교통편은 선택 사항입니다.',[['a','11:55'],['h','13:20~14:00','택시 약 40분','빨간 시내 택시 1대 약 HK$280~350. A21 버스는 킴벌리 로드 하차 후 도보 약 7분, 대기 포함 60~90분·일반 성인 4명 HK$138.40.']]],
  ['금 · 식사와 야경','1/22 금요일 · 침사추이','마스터 콘지 점심 → 호텔 휴식 → 바닷가 산책 → 맥스 누들 저녁.',[['h','출발'],['m','14:00','도보 5~10분'],['h','15:00','도보 5~10분'],['s','17:00 출발','도보 20~30분'],['c','18:00 전후','도보 10~20분','사진과 야경을 포함하면 해안 산책 40~60분.'],['n','18:30','도보 3~8분'],['h','저녁 후','택시 5~15분']]],
- ['토 · 아침과 피크','1/23 토요일 · 피크트램과 정상 점심','아침 식사 후 센트럴행 페리. 피크트램 편도 시간은 주말 대기 포함 추정치입니다.',[['h','07:50'],['w','08:00','도보 5~10분'],['f','09:00 출발','도보 15~20분'],['p','09:30 전후','페리 15~25분'],['b','10:00 전후','택시 10~20분'],['t','오전','트램 25~60분'],['l','12:00','도보 3~5분'],['t','13:15 전후','도보 3~5분'],['b','하산','트램 25~60분'],['central','하산 후','도보 10~15분'],['mk','14:30 목표','MTR 20~30분']]],
+ ['토 · 아침과 피크','1/23 토요일 · 피크트램과 정상 점심','아침 식사 후 센트럴행 페리. 피크트램 편도 시간은 주말 대기 포함 추정치입니다.',[['h','07:50'],['w','08:00','도보 5~10분'],['f','08:50 선착장 도착 목표','도보 15~20분'],['p','09:30 전후','페리 15~25분'],['b','10:00 전후','택시 10~20분'],['t','오전','트램 25~60분'],['l','12:00','도보 3~5분'],['t','13:15 전후','도보 3~5분'],['b','하산','트램 25~60분'],['central','하산 후','도보 10~15분'],['mk','14:30 목표','MTR 20~30분']]],
  ['토 · 몽콕 식당','1/23 토요일 · 시장과 에그타르트','캄와 카페는 추천 간식입니다. 저녁은 기존 찬키와 대안을 비교해 선택하세요.',[['mk','14:30 전후'],['shoes','오후','도보 5~10분'],['egg','15:45 전후','도보 10~15분'],['market','16:30','도보 8~15분'],['chan','18:00 후보','도보 8~15분'],['h','저녁 후','택시 10~25분']]],
  ['토 · 저녁 대안','1/23 토요일 · 키슨에서 저녁','찬키 영업을 확인하지 못하면 레이디스 마켓에서 바로 키슨으로 가세요.',[['market','시장 구경 후'],['k','18:00','도보 8~15분'],['h','저녁 후','택시 10~25분']]],
  ['일 · 귀국','1/24 일요일 · 인천행 YP802','08:00 조식은 자유 선택. 10:40까지 공항 도착 목표 → 13:40 홍콩 출발 → 18:15 인천 도착.',[['h','09:15 출발'],['a','09:50~10:10 예상','택시 35~55분']]]];
@@ -87,6 +87,12 @@ function directions(from,to,time){
  const mode=time.startsWith('택시')?'driving':time.startsWith('도보 ')&&!time.includes('MTR')?'walking':'transit';
  return 'https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[from][3]+' Hong Kong',destination:venues[to][3]+' Hong Kong',travelmode:mode});
 }
+const timingNotes={
+ 'f:p':['09:00 전후 페리 탑승 목표','08:30 와소 카페 출발 → 08:50까지 침사추이 선착장 → 09:00 전후 센트럴행 탑승. 현행 토요일 07:15~22:30 배차는 6~8분 간격입니다. 놓치면 다음 편을 타세요. 09:30 전후 센트럴 도착 목표이며 당일 운항 상황에 따라 달라집니다.'],
+ 'b:t':['10:00 전후 하부역 도착 목표','10:00 전후 하부역에 도착해 탑승 대기할 계획입니다. 온라인 구매 시 선택한 입장 시간대를 우선하세요. 실제 탑승은 대기열에 따라 늦어질 수 있습니다.'],
+ 't:b':['13:15 하산 대기 목표','13:15 전후 피크 타워에서 하산 줄에 서세요. 주말 대기가 길면 14:30 몽콕 도착 목표도 늦춰집니다.'],
+ 'h:a':['09:15 공항행 택시 출발 목표','09:15 호텔 출발 → 09:50~10:10 공항 도착 예상. 10:40까지 도착을 목표로 교통 지연 여유 30분 이상을 두었습니다. 예약 일정상 YP802 출발은 홍콩 시각 13:40이며 탑승 마감은 당일 탑승권을 확인하세요.']
+};
 const transportTickets={
  '트램':['피크트램 공식 예매','왕복 일정은 왕복권을 한 번 구매하세요. 1월 23일 표는 현행 기준 12월 24일부터 예매 가능합니다.','https://webstore.thepeak.com.hk/?lang=en_us'],
  '페리':['스타페리 시간표·요금','침사추이 → 센트럴 정기선은 예약 없이 선착장에서 결제하세요.','https://www.starferry.com.hk/en/service'],
@@ -210,10 +216,19 @@ function routeLayer(stops,ids){
   const endpoints=[coord(from),coord(to)];
   const line=L.polyline(endpoints,{color:'#086558',weight:4,dashArray:'6 6'}).addTo(overlays);
   const flow=L.polyline(endpoints,{className:'route-flow',color:'#ffdf91',weight:4.5,opacity:1,lineCap:'round',dashArray:'0.1 63.9',interactive:false}).addTo(overlays);
-  line.bindPopup(ticketLink(duration)+linkLeg(from,to,duration)+googleSearch(to));
+  const timing=timingNotes[from+':'+to];
+  const timingInfo=timing?'<strong>'+timing[0]+'</strong><p>'+timing[1]+'</p>':'';
+  line.bindPopup(timingInfo+ticketLink(duration)+linkLeg(from,to,duration)+googleSearch(to));
   const timeButton=document.createElement('button');
   timeButton.textContent=j+'구간 · '+duration;
   timeButton.setAttribute('aria-label',j+'구간 '+venues[from][0]+'에서 '+venues[to][0]+' '+duration+' 길찾기');
+  if(timing){
+   const badge=document.createElement('span');
+   badge.className='timing-badge';
+   badge.textContent='◷ 시간 확인';
+   timeButton.append(badge);
+   timeButton.setAttribute('aria-label',timeButton.getAttribute('aria-label')+' · '+timing[0]);
+  }
   L.DomEvent.disableClickPropagation(timeButton);
   timeButton.onclick=e=>{e.stopPropagation();line.openPopup(chip.getLatLng());};
   const chip=L.tooltip({permanent:true,direction:'center',interactive:true,className:'leg-time'}).setContent(timeButton).setLatLng(endpoints[1]).addTo(overlays);
@@ -268,7 +283,7 @@ function render(i){
  used.push(ty);mark('line',{x1:mx,y1:my,x2:tx,y2:ty,stroke:'#457568'});mark('rect',{x:tx-56,y:ty-8,width:112,height:16,rx:4,fill:'#174f46'});mark('text',{x:tx,y:ty+4,'text-anchor':'middle',fill:'white','font-size':11},(j+1)+' · '+duration);});
  stops.forEach(([id,time,duration,note],j)=>{const [name,,,address,price,status,source]=venues[id],a=document.createElement('article');
  const link='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address+' Hong Kong');
- a.innerHTML=(duration?'<small>'+j+'구간 · '+venues[stops[j-1][0]][0]+'에서 '+duration+'</small>':'')+'<h3><span class="num">'+(j+1)+'</span>　'+time+' · '+placeType(id)[0]+' '+name+'</h3>'+(price?'<p><b>'+price+'</b><br>'+status+'</p>':'')+(note?'<p>'+note+'</p>':'')+'<a href="'+link+'">지도 위치</a>　'+googleSearch(id)+(source?'　<a href="'+source+'">매장 정보</a>':'');if(j){a.insertAdjacentHTML('beforeend',ticketLink(duration));const go=document.createElement('a');go.textContent='　구간 길찾기';go.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[stops[j-1][0]][3]+' Hong Kong',destination:address+' Hong Kong',travelmode:duration.startsWith('택시')?'driving':duration.startsWith('도보 ')&&!duration.includes('MTR')?'walking':'transit'});a.append(go);}const locate=document.createElement('button');locate.textContent='이곳 지도 보기';locate.style.marginLeft='8px';locate.onclick=()=>{openDetails(false);select.value=id;showStreetMap(id);};a.append(locate);list.append(a)});
+ a.innerHTML=(duration?'<small>'+j+'구간 · '+venues[stops[j-1][0]][0]+'에서 '+duration+'</small>':'')+'<h3><span class="num">'+(j+1)+'</span>　'+time+' · '+placeType(id)[0]+' '+name+'</h3>'+(price?'<p><b>'+price+'</b><br>'+status+'</p>':'')+(note?'<p>'+note+'</p>':'')+'<a href="'+link+'">지도 위치</a>　'+googleSearch(id)+(source?'　<a href="'+source+'">매장 정보</a>':'');if(j){const timing=timingNotes[stops[j-1][0]+':'+id];if(timing){const note=document.createElement('p');note.textContent=timing[1];a.append(note);}a.insertAdjacentHTML('beforeend',ticketLink(duration));const go=document.createElement('a');go.textContent='　구간 길찾기';go.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[stops[j-1][0]][3]+' Hong Kong',destination:address+' Hong Kong',travelmode:duration.startsWith('택시')?'driving':duration.startsWith('도보 ')&&!duration.includes('MTR')?'walking':'transit'});a.append(go);}const locate=document.createElement('button');locate.textContent='이곳 지도 보기';locate.style.marginLeft='8px';locate.onclick=()=>{openDetails(false);select.value=id;showStreetMap(id);};a.append(locate);list.append(a)});
 }
 const routeChoice=document.querySelector('#route-choice');
 routeChoice.onchange=()=>{openDetails(false);sheet.scrollTop=0;render(Number(routeChoice.value));};
