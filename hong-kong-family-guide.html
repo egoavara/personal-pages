@@ -11,7 +11,12 @@
  #list article{padding:14px 0}#list h3{font-size:18px}#list a,#list button,summary,.mobile-nav a{display:inline-flex;align-items:center;min-height:44px}
  .leaflet-control-attribution{max-width:235px;line-height:1.1;font-size:9px}.leg-time{font-size:12px}
 }
-</style><header><small>2027. 1. 22–24　·　성인 4명　·　스탠포드 힐뷰</small><h1>홍콩 여행 경로와 식당</h1></header><main><div class="mobile-nav"><select id="route-choice" aria-label="날짜와 구간"></select><a href="#list">일정 보기 ↓</a></div><nav id="tabs" aria-label="일정 선택"></nav><h2 id="day"></h2><p id="summary"></p><div class="pair"><section><label for="spot">지도에서 볼 장소 </label><select id="spot" style="font:inherit;max-width:100%;padding:5px"></select><div id="streetmap" aria-label="여행 경로 지도" style="height:440px;margin-top:8px;background:#eef1ec"></div><small>실선은 도로 경로, 점선은 경유지 연결입니다. 선을 누르면 이동 구간을 확인할 수 있어요.</small><br><small><a id="largemap" target="_blank" rel="noopener">OpenStreetMap에서 열기 ↗</a></small><details><summary>이동 순서와 구간별 시간</summary><svg viewBox="0 0 480 350" id="map" role="img" aria-label="경유지 위치와 구간별 소요 시간"></svg><small>북쪽이 위인 위치 약도 · 숫자는 방문 순서, 주황색은 식당. 선의 시간은 예상 이동 시간입니다. 실제 길은 각 장소의 지도에서 확인하세요.</small></details></section><section id="list" aria-live="polite"></section></div><footer>4인 금액은 HK$1≈172원으로 환산한 예산입니다. 항공기·도로·주말 대기 상황에 따라 일정이 달라질 수 있어요. <a href="peak-mongkok-map.html">항구 양쪽 전체 지도와 트램 구간 상세</a></footer></main>
+body{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}header{padding:8px 16px}header h1{font-size:20px}header small{font-size:12px}main{max-width:none;margin:0;padding:0;position:relative;display:flex;flex:1;min-height:0;flex-direction:column}.mobile-nav{display:flex;gap:8px;padding:6px 12px;align-items:center}.mobile-nav select{min-width:0;flex:1;max-width:440px;height:42px;font:inherit}#spot{max-width:42%}.leg-time{pointer-events:auto;cursor:pointer}.leg-time button{font:inherit;color:inherit;background:none;border:0;padding:3px 5px}.leg-time:focus-within{outline:2px solid #a34816}#streetmap{flex:1;min-height:0;height:auto!important;z-index:0;background:#eef1ec}.bar{padding:6px 14px max(6px,env(safe-area-inset-bottom));background:#fbf8ef}.bar button{width:100%;background:#174f46;color:white}.sheet{overflow:auto;overscroll-behavior:contain;max-height:40vh;max-height:40dvh;padding:0 max(16px,calc((100% - 860px)/2));border-top:1px solid #adbbb3}.sheet[hidden],#tabs{display:none}.leaflet-popup-content a{display:block;padding:5px 0}.sheet footer{padding-bottom:12px}
+</style><header><small>2027. 1. 22–24 · 성인 4명</small><h1>홍콩 여행 경로와 식당</h1></header><main>
+<div class="mobile-nav"><select id="route-choice" aria-label="날짜와 구간"></select><select id="spot" aria-label="지도에서 볼 장소"></select></div><nav id="tabs" hidden></nav>
+<div id="streetmap" aria-label="여행 경로 지도"></div>
+<div class="bar"><button id="toggle" aria-expanded="false" aria-controls="sheet">상세 경로 보기 ↑</button></div>
+<section class="sheet" id="sheet" hidden><h2 id="day"></h2><p id="summary"></p><section id="list"></section><details><summary>구간별 시간 약도</summary><svg viewBox="0 0 480 350" id="map" role="img" aria-label="경유지와 시간"></svg></details><footer>4인 예산 기준 HK$1≈172원 · <a id="largemap" target="_blank" rel="noopener">OpenStreetMap 열기</a></footer></section></main>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // Approximate coordinates for the route diagram; navigation links use venue names and addresses.
@@ -49,6 +54,21 @@ const tabs=document.querySelector('#tabs'),map=document.querySelector('#map'),li
 function mark(tag,attrs,content){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);if(content)el.textContent=content;map.append(el);return el}
 let streets, overlays, drawVersion=0;
 const roadCache=new Map();
+const sheet=document.querySelector('#sheet'),toggle=document.querySelector('#toggle');
+function openDetails(open){
+ sheet.hidden=!open;
+ toggle.setAttribute('aria-expanded',String(open));
+ toggle.textContent=open?'상세 경로 닫기 ↓':'상세 경로 보기 ↑';
+ if(streets)streets.invalidateSize();
+}
+toggle.onclick=()=>openDetails(sheet.hidden);
+function directions(from,to,time){
+ const mode=time.startsWith('택시')?'driving':time.startsWith('도보 ')&&!time.includes('MTR')?'walking':'transit';
+ return 'https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[from][3]+' Hong Kong',destination:venues[to][3]+' Hong Kong',travelmode:mode});
+}
+function linkLeg(from,to,time){
+ return '<a target="_blank" rel="noopener" href="'+directions(from,to,time)+'">'+venues[from][0]+' → '+venues[to][0]+' · '+time+'<br>Google 지도 길찾기 ↗</a>';
+}
 function routeLayer(stops,ids){
  const version=++drawVersion;
  const coord=id=>venues[id].slice(1,3);
@@ -71,8 +91,13 @@ function routeLayer(stops,ids){
   seen.add(key);
   const endpoints=[coord(from),coord(to)];
   const line=L.polyline(endpoints,{color:'#086558',weight:4,dashArray:'6 6'}).addTo(overlays);
-  line.bindTooltip(duration,{permanent:true,direction:'center',className:'leg-time'});
-  line.bindPopup(venues[from][0]+' → '+venues[to][0]+' · '+duration);
+  line.bindPopup(linkLeg(from,to,duration));
+  const timeButton=document.createElement('button');
+  timeButton.textContent=duration;
+  timeButton.setAttribute('aria-label',venues[from][0]+'에서 '+venues[to][0]+' '+duration+' 길찾기');
+  L.DomEvent.disableClickPropagation(timeButton);
+  timeButton.onclick=e=>{e.stopPropagation();line.openPopup(line.getCenter());};
+  line.bindTooltip(timeButton,{permanent:true,direction:'center',interactive:true,className:'leg-time'});
   const profile=duration.startsWith('택시')?'car':duration.startsWith('도보 ')&&!duration.includes('MTR')?'foot':null;
   if(!profile)continue;
   const url='https://routing.openstreetmap.de/routed-'+profile+'/route/v1/driving/'+endpoints.map(([lat,lon])=>lon+','+lat).join(';')+'?overview=full&geometries=geojson';
@@ -82,7 +107,9 @@ function routeLayer(stops,ids){
  const markers=new Map();
  ids.forEach((id,j)=>{
   const marker=L.circleMarker(coord(id),{radius:7,color:'white',weight:2,fillColor:venues[id][4]?'#af481e':'#143f38',fillOpacity:1}).addTo(overlays);
-  marker.bindPopup((j+1)+'. '+venues[id][0]);markers.set(id,marker);
+  const adjacent=new Set();
+  stops.slice(1).forEach(([to,,time],index)=>{const from=stops[index][0];if(from===id||to===id)adjacent.add(linkLeg(from,to,time));});
+  marker.bindPopup('<strong>'+venues[id][0]+'</strong><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(venues[id][3]+' Hong Kong')+'">장소 상세 지도 ↗</a>'+[...adjacent].join(''),{maxHeight:165});markers.set(id,marker);
  });
  return id=>{if(id){streets.setView(coord(id),17);markers.get(id).openPopup();}else{streets.closePopup();streets.fitBounds(box,{padding:[35,35],maxZoom:17});}};
 }
@@ -116,9 +143,9 @@ function render(i){
  used.push(ty);mark('line',{x1:mx,y1:my,x2:tx,y2:ty,stroke:'#457568'});mark('rect',{x:tx-56,y:ty-8,width:112,height:16,rx:4,fill:'#174f46'});mark('text',{x:tx,y:ty+4,'text-anchor':'middle',fill:'white','font-size':11},duration);});
  stops.forEach(([id,time,duration,note],j)=>{const [name,,,address,price,status,source]=venues[id],a=document.createElement('article');
  const link='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address+' Hong Kong');
- a.innerHTML=(duration?'<small>↓ '+venues[stops[j-1][0]][0]+'에서 '+duration+'</small>':'')+'<h3><span class="num">'+(ids.indexOf(id)+1)+'</span>　'+time+' · '+name+'</h3>'+(price?'<p><b>'+price+'</b><br>'+status+'</p>':'')+(note?'<p>'+note+'</p>':'')+'<a href="'+link+'">지도 위치</a>'+(source?'　<a href="'+source+'">매장 정보</a>':'');if(j){const go=document.createElement('a');go.textContent='　구간 길찾기';go.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[stops[j-1][0]][3]+' Hong Kong',destination:address+' Hong Kong',travelmode:duration.startsWith('택시')?'driving':duration.startsWith('도보 ')&&!duration.includes('MTR')?'walking':'transit'});a.append(go);}const locate=document.createElement('button');locate.textContent='이곳 지도 보기';locate.style.marginLeft='8px';locate.onclick=()=>{select.value=id;showStreetMap(id);select.scrollIntoView({block:'start'});};a.append(locate);list.append(a)});
+ a.innerHTML=(duration?'<small>↓ '+venues[stops[j-1][0]][0]+'에서 '+duration+'</small>':'')+'<h3><span class="num">'+(ids.indexOf(id)+1)+'</span>　'+time+' · '+name+'</h3>'+(price?'<p><b>'+price+'</b><br>'+status+'</p>':'')+(note?'<p>'+note+'</p>':'')+'<a href="'+link+'">지도 위치</a>'+(source?'　<a href="'+source+'">매장 정보</a>':'');if(j){const go=document.createElement('a');go.textContent='　구간 길찾기';go.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:venues[stops[j-1][0]][3]+' Hong Kong',destination:address+' Hong Kong',travelmode:duration.startsWith('택시')?'driving':duration.startsWith('도보 ')&&!duration.includes('MTR')?'walking':'transit'});a.append(go);}const locate=document.createElement('button');locate.textContent='이곳 지도 보기';locate.style.marginLeft='8px';locate.onclick=()=>{openDetails(false);select.value=id;showStreetMap(id);};a.append(locate);list.append(a)});
 }
 const routeChoice=document.querySelector('#route-choice');
-routeChoice.onchange=()=>render(Number(routeChoice.value));
+routeChoice.onchange=()=>{openDetails(false);sheet.scrollTop=0;render(Number(routeChoice.value));};
 routes.forEach((r,i)=>{routeChoice.add(new Option(r[0],String(i)));const b=document.createElement('button');b.textContent=r[0];b.onclick=()=>render(i);tabs.append(b)});render(1);
 </script></html>
