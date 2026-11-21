@@ -105,7 +105,7 @@ function visits(stops,id){
  return stops.flatMap(([stop],i)=>stop===id?[i+1]:[]).join('·');
 }
 function googleSearch(id){
- return '<a target="_blank" rel="noopener" href="https://www.google.com/search?'+new URLSearchParams({q:venues[id][3]+' Hong Kong'})+'">구글 검색에서 보기 ↗</a>';
+ return '<a target="_blank" rel="noopener" href="https://www.google.com/search?'+new URLSearchParams({hl:'ko',q:(venues[id][0].startsWith('홍콩')?'':'홍콩 ')+venues[id][0].replace(/\s*金華冰廳/,'')})+'">구글 검색에서 보기 ↗</a>';
 }
 // Place each time chip on its own line, keeping stops and nearby routes legible.
 function placeLegChips(legs, stops){
@@ -131,20 +131,28 @@ function placeLegChips(legs, stops){
    while(k<lengths.length-1 && remaining>lengths[k])remaining-=lengths[k++];
    const a=path[k], vector=path[k+1].subtract(a);
    const point=a.add(vector.multiplyBy(remaining/(lengths[k]||1)));
-   const {x,y}=point, rect=[x-w,y-h,x+w,y+h];
-   let cost=Math.abs(fraction-0.78)*25;
-   cost+=occupied.reduce((sum,r)=>sum+overlap(rect,r),0)*3;
-   cost+=4*w*h-overlap(rect,[0,0,size.x,size.y]);
+   let routeCost=Math.abs(fraction-0.78)*25;
    paths.forEach((other,n)=>{
     if(n===i)return;
     let distance=Infinity;
     for(let m=1;m<other.length;m++)
      distance=Math.min(distance,L.LineUtil.pointToSegmentDistance(point,other[m-1],other[m]));
-    cost+=Math.max(0,w-distance)*4;
+    routeCost+=Math.max(0,w-distance)*4;
    });
-   if(cost<score){score=cost;best={point,rect};}
+   // Short or retraced legs may have no room for a chip on the line.
+   for(const [dx,dy] of [[0,0],[w+12,0],[-w-12,0],[0,h+32],[0,-h-32],
+    [w+12,h+28],[-w-12,h+28],[w+12,-h-28],[-w-12,-h-28],[0,h+78],[0,-h-78]]){
+    const x=point.x+dx,y=point.y+dy,rect=[x-w,y-h,x+w,y+h];
+    const covered=occupied.reduce((sum,r)=>sum+overlap(rect,r),0);
+    const clipped=Math.max(0,4*w*h-overlap(rect,[0,0,size.x,size.y]));
+    const cost=routeCost+Math.hypot(dx,dy)*4+covered*100+clipped*80;
+    if(cost<score){score=cost;best={point,center:L.point(x,y),rect};}
+   }
   }
-  chip.setLatLng(streets.containerPointToLatLng(best.point));
+  const anchor=streets.containerPointToLatLng(best.point);
+  const center=streets.containerPointToLatLng(best.center);
+  legs[i].leader.setLatLngs(best.center.equals(best.point)?[]:[anchor,center]);
+  chip.setLatLng(center);
   occupied.push(best.rect);
  });
 }
@@ -184,7 +192,8 @@ function routeLayer(stops,ids){
   L.DomEvent.disableClickPropagation(timeButton);
   timeButton.onclick=e=>{e.stopPropagation();line.openPopup(chip.getLatLng());};
   const chip=L.tooltip({direction:'center',interactive:true,className:'leg-time'}).setContent(timeButton).setLatLng(endpoints[1]).addTo(overlays);
-  legs.push({line,chip});
+  const leader=L.polyline([],{color:'#315c51',weight:1.5,interactive:false}).addTo(overlays);
+  legs.push({line,chip,leader});
   refreshLegChips();
   const profile=duration.startsWith('택시')?'car':duration.startsWith('도보 ')&&!duration.includes('MTR')?'foot':null;
   if(!profile)continue;
