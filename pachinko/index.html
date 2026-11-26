@@ -76,7 +76,9 @@ body.sudden #alarm{opacity:1;animation:alarm .5s steps(1) infinite}
 .step{display:flex;align-items:center;gap:2px;flex:none}
 .step button{width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,200,58,.4);background:rgba(0,0,0,.4);color:var(--gold);font:700 18px/1 var(--body);cursor:pointer}
 .step button:active{background:var(--gold);color:#000}
-.step b{font-family:var(--display);font-weight:400;width:26px;text-align:center;color:#fff;font-variant-numeric:tabular-nums}
+.step input{font-family:var(--display);width:46px;height:30px;text-align:center;color:#fff;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:14px;-moz-appearance:textfield;appearance:textfield}
+.step input::-webkit-outer-spin-button,.step input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.step input:focus{outline:2px solid var(--gold);outline-offset:1px}
 .bar{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
 .bar span{font-weight:700;color:var(--mute);font-size:13px}
 .bar span b{color:var(--gold);font-family:var(--display);font-weight:400}
@@ -163,7 +165,7 @@ body.sudden #alarm{opacity:1;animation:alarm .5s steps(1) infinite}
   <div class="rows" id="rows"></div>
   <div class="bar">
     <span>공 <b id="total">0</b>개 · 참가 <b id="players">0</b>명</span>
-    <div class="tools"><button class="icon-btn" id="allMinus">전체 −1</button><button class="icon-btn" id="allPlus">전체 +1</button></div>
+    <div class="tools"><button class="icon-btn" id="allMinus10">−10</button><button class="icon-btn" id="allMinus">전체 −1</button><button class="icon-btn" id="allPlus">전체 +1</button><button class="icon-btn" id="allPlus10">+10</button></div>
   </div>
   <button class="go" id="btnGo" disabled>LOADING…</button>
 </div></div>
@@ -172,11 +174,11 @@ body.sudden #alarm{opacity:1;animation:alarm .5s steps(1) infinite}
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from '../lucky-dice/vendor/RoundedBoxGeometry.js';
 import { RoomEnvironment } from '../lucky-dice/vendor/RoomEnvironment.js';
-import { simulate, BOARD, PINS, BUMPERS, SPINNERS, WARPS, WARP_R, KICKERS, FLIPPERS, DIVIDERS, flipperAngle, spinnerAngle } from './sim.js';
+import { initPhysics, Game, DT, ACTIVE, LIFT, BOARD, PINS, BUMPERS, SPINNERS, WARPS, WARP_R, KICKERS, FLIPPERS, DIVIDERS } from './sim.js';
 
 const PEOPLE = ['benjamin.butn', 'angus.bak', 'bayne.jeong', 'beans.go', 'frisk.gwak', 'hasey.chong2', 'isla.moon', 'jacob.nam', 'jaeky.rs', 'kane.woz', 'kenny.kim2', 'otto.yoon', 'rudy.yoon'];
-const MAX_BALLS = 10, MIN_TIME = 35;
-const { W, H, R, SLOTS, SLOT_TOP } = BOARD, HW = W / 2, SLOT_W = W / SLOTS;
+const MAX_BALLS = 100, MIN_TIME = 35, TAG_LIMIT = 160;   // 남은 공이 TAG_LIMIT 개 이하일 때만 이름표를 붙인다
+const R = 0.19, { W, H, SLOTS, SLOT_TOP } = BOARD, HW = W / 2, SLOT_W = W / SLOTS;
 
 const $ = id => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -303,21 +305,33 @@ function setSlots(safe) { slotMeshes.forEach((s, i) => { s.safe = !!safe[i]; s.m
 
 /* balls + name tags */
 const MAXB = PEOPLE.length * MAX_BALLS;
-const ballMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(R, 28, 20), new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0 }), MAXB);
+const ballMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0 }), MAXB);
 ballMesh.frustumCulled = false; ballMesh.count = 0; scene.add(ballMesh);
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _v = new THREE.Vector3(), _c = new THREE.Color();
-let tagTex = [];
+// 이름표: 사람별 이름을 한 장의 아틀라스에 그려 두고, 공마다 한 줄씩 골라 한 번에 그린다.
+const TAG_W = 640, TAG_H = 144;
+const tagRow = new THREE.InstancedBufferAttribute(new Float32Array(MAXB), 1).setUsage(THREE.DynamicDrawUsage);
+const tagGeo = new THREE.PlaneGeometry(1, TAG_H / TAG_W); tagGeo.setAttribute('aRow', tagRow);
+const tagMat = new THREE.ShaderMaterial({
+  uniforms: { map: { value: null }, rows: { value: PEOPLE.length } }, transparent: true, depthTest: false, depthWrite: false,
+  vertexShader: `attribute float aRow; uniform float rows; varying vec2 vUv;
+    void main(){ vUv = vec2(uv.x, (uv.y + rows - 1.0 - aRow) / rows); gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform sampler2D map; varying vec2 vUv;
+    void main(){ gl_FragColor = texture2D(map, vUv);
+      #include <colorspace_fragment>
+    }`,
+});
+const tagMesh = new THREE.InstancedMesh(tagGeo, tagMat, MAXB); tagMesh.frustumCulled = false; tagMesh.renderOrder = 5; tagMesh.count = 0; scene.add(tagMesh);
 function makeTags() {
-  tagTex = PEOPLE.map((name, i) => {
-    const c = document.createElement('canvas'); c.width = 640; c.height = 144; const g = c.getContext('2d'); g.scale(2, 2);
-    g.fillStyle = 'rgba(8,3,18,.94)'; g.beginPath(); g.roundRect(3, 3, 314, 66, 30); g.fill();
+  const c = document.createElement('canvas'); c.width = TAG_W; c.height = TAG_H * PEOPLE.length; const g = c.getContext('2d'); g.scale(2, 2);
+  PEOPLE.forEach((name, i) => {
+    const y = i * TAG_H / 2;
+    g.fillStyle = 'rgba(8,3,18,.94)'; g.beginPath(); g.roundRect(3, y + 3, 314, 66, 30); g.fill();
     g.lineWidth = 5; g.strokeStyle = css(COLORS[i]); g.stroke();
-    g.fillStyle = '#fff'; g.font = '800 36px Pretendard, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, 160, 38, 290);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+    g.fillStyle = '#fff'; g.font = '800 36px Pretendard, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, 160, y + 38, 290);
   });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); tagMat.uniforms.map.value = t;
 }
-const tags = [];
-function ensureTags(n) { while (tags.length < n) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false, toneMapped: false })); s.renderOrder = 5; s.visible = false; scene.add(s); tags.push(s); } }
 
 /* ================= fireworks + confetti (finale) ================= */
 const FW = 8000; let fwHead = 0;
@@ -379,14 +393,17 @@ if (!Array.isArray(counts) || counts.length !== PEOPLE.length) counts = PEOPLE.m
 function renderSetup() {
   const total = counts.reduce((a, b) => a + b, 0), players = counts.filter(n => n > 0).length;
   $('rows').innerHTML = PEOPLE.map((n, i) => `<div class="row${counts[i] ? '' : ' zero'}" style="--c:${css(COLORS[i])}"><i></i><span>${n}</span><em>${total ? Math.round(counts[i] / total * 100) : 0}%</em>
-    <div class="step"><button data-i="${i}" data-d="-1" aria-label="${n} 공 줄이기">−</button><b>${counts[i]}</b><button data-i="${i}" data-d="1" aria-label="${n} 공 늘리기">+</button></div></div>`).join('');
+    <div class="step"><button data-i="${i}" data-d="-1" aria-label="${n} 공 줄이기">−</button><input type="number" inputmode="numeric" min="0" max="${MAX_BALLS}" value="${counts[i]}" data-i="${i}" aria-label="${n} 공 개수"><button data-i="${i}" data-d="1" aria-label="${n} 공 늘리기">+</button></div></div>`).join('');
   $('total').textContent = total; $('players').textContent = players;
   if (ready) { $('btnGo').disabled = players < 2; $('btnGo').textContent = players < 2 ? '2명 이상 필요' : 'START'; }
   store.set('counts', counts);
 }
 $('rows').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; counts[i] = clamp(counts[i] + +b.dataset.d, 0, MAX_BALLS); renderSetup(); });
+$('rows').addEventListener('change', e => { const el = e.target.closest('input'); if (!el) return; counts[+el.dataset.i] = clamp(Math.round(+el.value) || 0, 0, MAX_BALLS); renderSetup(); });
 $('allPlus').addEventListener('click', () => { counts = counts.map(n => clamp(n + 1, 0, MAX_BALLS)); renderSetup(); });
 $('allMinus').addEventListener('click', () => { counts = counts.map(n => clamp(n - 1, 0, MAX_BALLS)); renderSetup(); });
+$('allPlus10').addEventListener('click', () => { counts = counts.map(n => clamp(n + 10, 0, MAX_BALLS)); renderSetup(); });
+$('allMinus10').addEventListener('click', () => { counts = counts.map(n => clamp(n - 10, 0, MAX_BALLS)); renderSetup(); });
 
 /* ================= roster ================= */
 let aliveNow = [];
@@ -400,16 +417,13 @@ let game = null, ready = false, loops = {};
 async function start() {
   $('btnGo').disabled = true;
   try { await audio.init(); await audio.ctx.resume(); } catch (e) { console.warn(e); }
-  const seed = (Math.random() * 2 ** 31) | 0, sim = simulate(counts, seed, MIN_TIME);
-  window.__sim = { seed, tEnd: sim.tEnd, winner: PEOPLE[sim.winner], order: sim.order.map(i => PEOPLE[i]) };
+  const sim = new Game(counts, { minTime: MIN_TIME });
+  window.__sim = { balls: sim.N, radius: sim.R };
   aliveNow = counts.slice(); renderRoster();
-  ensureTags(sim.nBalls); ballMesh.count = sim.nBalls;
-  sim.owners.forEach((o, b) => { ballMesh.setColorAt(b, COLORS[o]); tags[b].material.map = tagTex[o]; tags[b].material.needsUpdate = true; });
-  tags.forEach((t, b) => { if (b >= sim.nBalls) t.visible = false; });
+  ballMesh.count = sim.N; tagMesh.count = 0;
+  sim.owners.forEach((o, b) => { ballMesh.setColorAt(b, COLORS[o]); ballMesh.setMatrixAt(b, ZERO); });
   ballMesh.instanceColor.needsUpdate = true;
-  const tagScale = sim.nBalls > 70 ? 0.72 : sim.nBalls > 40 ? 0.88 : 1.05;
-  tags.forEach(t => t.scale.set(tagScale * 1.3, tagScale * 1.3 * 72 / 320, 1));
-  game = { sim, t0: performance.now() / 1000, ei: 0, rank: counts.filter(n => n > 0).length, won: false, tagScale };
+  game = { sim, acc: 0, tick: 0, rank: counts.filter(n => n > 0).length, won: false };
   document.body.classList.remove('sudden', 'win', 'shake'); $('win').classList.remove('on', 'ready');
   $('setup').classList.add('gone');
   audio.play('start', { vol: .8 });
@@ -418,7 +432,6 @@ async function start() {
 function handle(e) {
   const g = game;
   switch (e.type) {
-    case 'pin': audio.play('tink', { vol: clamp(e.v / 16, .05, .5), rate: rand(.8, 1.5), gap: .03 }); break;
     case 'bump': bumperMeshes[e.i].flash = 1; audio.play('bump', { vol: .45, rate: [1, 1.15, .9][e.i], gap: .07 }); break;
     case 'flip': audio.play('flip', { vol: .22, rate: rand(.95, 1.1) }); break;
     case 'kick': kickerMeshes[e.i].flash = 1; audio.play('tink', { vol: .5, rate: .55, gap: .05 }); break;
@@ -437,7 +450,7 @@ function handle(e) {
       break;
     }
     case 'sudden': document.body.classList.add('sudden'); audio.play('sudden', { vol: .8 }); if (loops.bgm) loops.bgm.src.playbackRate.value = 1.18; showToast('SUDDEN DEATH', '이제 모든 칸이 OUT!', '#ff2b4f'); break;
-    case 'win': g.won = true; setTimeout(() => finale(e.o), 650); break;
+    case 'win': g.won = true; window.__sim = { ...window.__sim, tEnd: g.sim.tEnd, winner: PEOPLE[e.o], order: g.sim.order.map(i => PEOPLE[i]) }; setTimeout(() => finale(e.o), 650); break;
   }
 }
 let fin = null;
@@ -456,30 +469,38 @@ function finale(o) {
 function again() {
   if (!fin) return; ['fanfare', 'crowd', 'fw'].forEach(k => audio.stop(loops[k], .8)); fin = null; game = null;
   $('win').classList.remove('on', 'ready'); document.body.classList.remove('win', 'shake');
-  ballMesh.count = 0; tags.forEach(t => t.visible = false); setSlots([]); slotMeshes.forEach(s => { s.mat.map = null; s.mat.needsUpdate = true; });
+  ballMesh.count = 0; tagMesh.count = 0; setSlots([]); slotMeshes.forEach(s => { s.mat.map = null; s.mat.needsUpdate = true; });
   $('clock').textContent = '00.0'; renderSetup(); $('setup').classList.remove('gone');
 }
 
-function updateGame(now) {
-  const g = game, sim = g.sim, N = sim.nBalls, F = sim.frames, t = now - g.t0;
-  while (g.ei < sim.events.length && sim.events[g.ei].t <= t) handle(sim.events[g.ei++]);
-  if (!g.won) $('clock').textContent = t.toFixed(1).padStart(4, '0');
-  const f = Math.min(sim.nFrames - 1, t * sim.fps), i0 = Math.floor(f), i1 = Math.min(sim.nFrames - 1, i0 + 1), u = f - i0;
-  let active = 0;
+function updateGame(dt) {
+  const g = game, sim = g.sim;
+  // 물리는 고정 간격으로 진행한다. 탭이 밀려 한참 못 돌았을 때는 따라잡지 않고 버린다.
+  g.acc = Math.min(g.acc + dt, 0.1);
+  while (g.acc >= DT) { g.acc -= DT; sim.step(); for (const e of sim.events) handle(e); sim.events.length = 0; }
+  if (!g.won) $('clock').textContent = sim.t.toFixed(1).padStart(4, '0');
+  const N = sim.N, r = sim.R, showTags = sim.ballsAlive <= TAG_LIMIT, ts = (sim.ballsAlive > 70 ? 0.95 : sim.ballsAlive > 40 ? 1.12 : 1.35);
+  let tags = 0;
   for (let b = 0; b < N; b++) {
-    const a = (i0 * N + b) * 2, c = (i1 * N + b) * 2, x0 = F[a], x1 = F[c];
-    if (x0 !== x0) { ballMesh.setMatrixAt(b, ZERO); tags[b].visible = false; continue; }
-    let x = x0, y = F[a + 1];
-    if (x1 === x1 && Math.abs(x1 - x0) < 1.5 && Math.abs(F[c + 1] - y) < 1.5) { x = lerp(x0, x1, u); y = lerp(y, F[c + 1], u); }
-    _m.makeTranslation(x, y, R + 0.02); ballMesh.setMatrixAt(b, _m);
-    const onBoard = y > 0.4 && y < H - 0.6 && Math.abs(x) < HW; if (onBoard) active++;
-    tags[b].visible = onBoard; tags[b].position.set(x, y + R + 0.26 * g.tagScale, 0.7);
+    const st = sim.state[b];
+    if (st !== ACTIVE && st !== LIFT) { ballMesh.setMatrixAt(b, ZERO); continue; }
+    const x = sim.x[b], y = sim.y[b];
+    _m.makeScale(r, r, r).setPosition(x, y, r + 0.02); ballMesh.setMatrixAt(b, _m);
+    if (showTags && st === ACTIVE && y > 0.4) {
+      _m.makeScale(ts, ts, 1).setPosition(x, y + r + 0.17 * ts, 0.7); tagMesh.setMatrixAt(tags, _m); tagRow.array[tags] = sim.owners[b]; tags++;
+    }
   }
   ballMesh.instanceMatrix.needsUpdate = true;
-  if (loops.stream && !g.won) loops.stream.g.gain.value = Math.min(.42, active / 50 * .42);
-  spinnerMeshes.forEach((m, i) => m.rotation.z = spinnerAngle(SPINNERS[i], t));
-  const sud = document.body.classList.contains('sudden') || g.won ? 0 : sim.tSudden;
-  flipperMeshes.forEach((m, i) => m.rotation.z = flipperAngle(FLIPPERS[i], t, sud));
+  tagMesh.count = tags; if (tags) { tagMesh.instanceMatrix.needsUpdate = true; tagRow.needsUpdate = true; }
+  // 핀에 부딪히는 소리는 판 위의 공 수에 비례해 흩뿌린다
+  if (!g.won) {
+    g.tick += sim.active * dt * 2.2; let n = 0;
+    while (g.tick >= 1 && n++ < 3) { g.tick--; audio.play('tink', { vol: rand(.05, .32), rate: rand(.8, 1.5), gap: .028 }); }
+    if (g.tick > 3) g.tick = 0;
+    if (loops.stream) loops.stream.g.gain.value = Math.min(.42, sim.active / 60 * .42);
+  }
+  spinnerMeshes.forEach((m, i) => m.rotation.z = sim.spinAngle[i]);
+  flipperMeshes.forEach((m, i) => m.rotation.z = sim.flipAngle[i]);
 }
 function updateFx(now, dt) {
   bumperMeshes.forEach(b => { b.flash = Math.max(0, b.flash - dt * 5); b.mat.emissiveIntensity = b.flash * 1.2; b.m.scale.setScalar(1 + b.flash * 0.12); });
@@ -511,7 +532,7 @@ function fitCamera() {
 let last = performance.now() / 1000;
 function frame() {
   const now = performance.now() / 1000, dt = Math.min(0.05, now - last); last = now;
-  if (game) updateGame(now);
+  if (game) updateGame(dt);
   updateFx(now, dt); updateFireworks(dt); updateConfetti(dt, now, !!fin);
   const sway = Math.sin(now * .3) * 0.02, sh = fin && !REDUCED ? Math.max(0, 1 - (now - fin.t0) / 1.8) * 0.3 : 0;
   camera.position.copy(LOOK).addScaledVector(_v.copy(CAM_DIR).applyAxisAngle(THREE.Object3D.DEFAULT_UP, sway), camDist);
@@ -527,12 +548,12 @@ $('btnAgain').addEventListener('click', again);
 $('btnMute').addEventListener('click', () => audio.setMuted(!audio.muted));
 (async function boot() {
   audio.setMuted(audio.muted); renderSetup(); fitCamera(); requestAnimationFrame(frame);
-  const [boardTex] = await Promise.all([loadTex('assets/img/board.jpg'), document.fonts ? document.fonts.load('400 34px Bungee').catch(() => {}) : 0, document.fonts ? document.fonts.load('800 36px Pretendard', 'a').catch(() => {}) : 0]);
+  const [boardTex] = await Promise.all([loadTex('assets/img/board.jpg'), initPhysics(), document.fonts ? document.fonts.load('400 34px Bungee').catch(() => {}) : 0, document.fonts ? document.fonts.load('800 36px Pretendard', 'a').catch(() => {}) : 0]);
   if (boardTex) { boardMat.map = boardTex; boardMat.color.set(0xffffff); boardMat.needsUpdate = true; }
   texSafe = slotTexture('SAFE', 'rgba(57,240,138,.95)', '#04240f'); texOut = slotTexture('OUT', 'rgba(255,43,79,.95)', '#2a0008');
   makeTags(); ready = true; renderSetup();
 })();
-window.__game = { start, again, get counts() { return counts; }, set counts(c) { counts = c; renderSetup(); } };
+window.__game = { start, again, skip(sec) { if (!game) return; const end = game.sim.t + sec; while (game && game.sim.t < end && !game.won) { game.sim.step(); for (const e of game.sim.events) handle(e); game.sim.events.length = 0; } return game.sim.t; }, get counts() { return counts; }, set counts(c) { counts = c; renderSetup(); } };
 </script>
 </body>
 </html>
