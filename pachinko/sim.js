@@ -5,7 +5,7 @@ export const BOARD = { W: 10, H: 17, R: 0.19, SLOTS: 9, SLOT_TOP: 1.5, SPAWN_Y: 
 const { W, H, R, SLOTS, SLOT_TOP, SPAWN_Y, TUBE_X } = BOARD;
 const HW = W / 2, SLOT_W = W / SLOTS;
 const PIN_R = 0.09, G = 17, DT = 1 / 240, FPS = 60, SUB = 240 / FPS;
-const LIFT_TIME = 1.8, PHASE = 3.0, WARP_TIME = 0.55, MAX_SPEED = 17;
+const LIFT_TIME = 1.8, PHASE = 3.0, WARP_TIME = 0.55, MAX_SPEED = 22;
 
 /* ---------- 기믹 배치 ---------- */
 export const BUMPERS = [{ x: 0, y: 11.5, r: 0.46 }, { x: -1.9, y: 10.0, r: 0.46 }, { x: 1.9, y: 10.0, r: 0.46 }];
@@ -149,7 +149,7 @@ export function simulate(counts, seed, minTime = 35) {
       if (b.st !== 1) continue;
       b.vy -= G * DT; b.vx *= 0.9996; b.vy *= 0.9996;
       b.x += b.vx * DT; b.y += b.vy * DT;
-      if (b.x < -HW + R) { b.x = -HW + R; b.vx = Math.abs(b.vx) * 0.55; } else if (b.x > HW - R) { b.x = HW - R; b.vx = -Math.abs(b.vx) * 0.55; }
+      if (b.x < -HW + R) { b.x = -HW + R; b.vx = Math.abs(b.vx) * 0.8; } else if (b.x > HW - R) { b.x = HW - R; b.vx = -Math.abs(b.vx) * 0.8; }
       if (b.y > H - 0.7 - R) { b.y = H - 0.7 - R; b.vy = -Math.abs(b.vy) * 0.4; }
       const kb = Math.floor(b.y / BUCKET);
       for (let q = kb - 1; q <= kb + 1; q++) {
@@ -159,7 +159,7 @@ export function simulate(counts, seed, minTime = 35) {
           if (d2 >= m * m || d2 === 0) continue;
           const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, vn = b.vx * nx + b.vy * ny;
           b.x = p.x + nx * m; b.y = p.y + ny * m;
-          if (vn < 0) { b.vx -= 1.52 * vn * nx; b.vy -= 1.52 * vn * ny; b.vx += rr(-0.25, 0.25); if (vn < -2.5) events.push({ t, type: 'pin', v: -vn }); }
+          if (vn < 0) { b.vx -= 1.74 * vn * nx; b.vy -= 1.74 * vn * ny; b.vx += rr(-0.3, 0.3); if (vn < -2.5) events.push({ t, type: 'pin', v: -vn }); }
         }
       }
       for (let i = 0; i < BUMPERS.length; i++) {
@@ -167,24 +167,24 @@ export function simulate(counts, seed, minTime = 35) {
         if (d2 >= m * m || d2 === 0) continue;
         const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, vn = b.vx * nx + b.vy * ny;
         b.x = p.x + nx * m; b.y = p.y + ny * m;
-        if (vn < 0) { const kick = Math.max(-vn * 0.9, 5.5); b.vx += (-vn + kick) * nx; b.vy += (-vn + kick) * ny; events.push({ t, type: 'bump', i }); }
+        if (vn < 0) { const kick = Math.max(-vn * 1.0, 9); b.vx += (-vn + kick) * nx; b.vy += (-vn + kick) * ny; events.push({ t, type: 'bump', i }); }
       }
       for (const s of SPINNERS) {
         if (Math.abs(b.x - s.x) > s.len + 0.4 || Math.abs(b.y - s.y) > s.len + 0.4) continue;
         const a = spinnerAngle(s, t);
         for (let q = 0; q < 2; q++) {
           const c = Math.cos(a + q * Math.PI / 2) * s.len, sn = Math.sin(a + q * Math.PI / 2) * s.len;
-          hitBar(b, s.x - c, s.y - sn, s.x + c, s.y + sn, 0.07, s.x, s.y, s.w, 0.45, 0);
+          hitBar(b, s.x - c, s.y - sn, s.x + c, s.y + sn, 0.07, s.x, s.y, s.w, 0.75, 1.5);
         }
       }
       for (let i = 0; i < KICKERS.length; i++) {
         const k = KICKERS[i];
         if (b.y > 6.2 || b.y < 4) continue;
-        if (hitBar(b, k.ax, k.ay, k.bx, k.by, 0.08, 0, 0, 0, 0.5, 4.5)) events.push({ t, type: 'kick', i });
+        if (hitBar(b, k.ax, k.ay, k.bx, k.by, 0.08, 0, 0, 0, 0.6, 8)) events.push({ t, type: 'kick', i });
       }
       if (b.y < 4.6 && b.y > 1.4) FLIPPERS.forEach((f, i) => {
         const a = flipNow[i], w = (flipNow[i] - flipPrev[i]) / DT;
-        hitBar(b, f.x, f.y, f.x + Math.cos(a) * f.len, f.y + Math.sin(a) * f.len, 0.1, f.x, f.y, w, 0.35, 0);
+        hitBar(b, f.x, f.y, f.x + Math.cos(a) * f.len, f.y + Math.sin(a) * f.len, 0.1, f.x, f.y, w, 0.6, 0);
       });
       if (!sudden) for (let i = 0; i < WARPS.length; i++) {
         const wp = WARPS[i], dx = b.x - wp.x, dy = b.y - wp.y;
@@ -231,7 +231,7 @@ export function simulate(counts, seed, minTime = 35) {
         const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, ov = (2 * R - d) / 2;
         a.x -= nx * ov; a.y -= ny * ov; c.x += nx * ov; c.y += ny * ov;
         const vn = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny;
-        if (vn < 0) { const imp = -0.8 * vn; a.vx -= imp * nx; a.vy -= imp * ny; c.vx += imp * nx; c.vy += imp * ny; }
+        if (vn < 0) { const imp = -0.92 * vn; a.vx -= imp * nx; a.vy -= imp * ny; c.vx += imp * nx; c.vy += imp * ny; }
       }
     }
     if (step % SUB === 0) for (const b of balls) frames.push(b.st === 1 || b.st === 2 ? b.x : NaN, b.y);
