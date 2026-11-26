@@ -40,11 +40,14 @@ body.shake #stage{animation:shake .09s linear infinite}
 #list{list-style:none;display:flex;flex-direction:column;gap:4px;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;flex:1;min-height:0}
 #list::-webkit-scrollbar{display:none}
 #list li{display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);font-weight:700;font-size:14px;transition:opacity .4s,background .3s}
+#list em{font:400 12px var(--display);color:var(--mute);width:18px;text-align:right;flex:none;font-style:normal}
+#list li.lead em{color:var(--gold)}
+#list li.lead{border-color:rgba(255,200,58,.5)}
 #list i{width:13px;height:13px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);flex:none}
 #list span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #list b{font-family:var(--display);font-weight:400;font-size:14px;color:var(--gold);font-variant-numeric:tabular-nums}
 #list li.hit{background:rgba(255,43,79,.5)}
-#list li.gone{opacity:.32}#list li.gone span{text-decoration:line-through}#list li.gone b{color:var(--mute);font:700 11px var(--body)}
+#list li.gone{opacity:.32}#list li.gone span{text-decoration:line-through}#list li.gone b{color:var(--mute);font:700 10px var(--body);letter-spacing:.08em}
 #list li.winner{background:linear-gradient(90deg,rgba(255,200,58,.5),rgba(255,63,164,.35));border-color:var(--gold);box-shadow:0 0 18px rgba(255,200,58,.6)}
 .tools{display:flex;gap:8px}
 .icon-btn{height:38px;min-width:38px;padding:0 12px;border-radius:99px;border:1px solid rgba(255,200,58,.45);background:rgba(20,7,36,.85);color:var(--gold);font:700 13px var(--body);cursor:pointer}
@@ -125,7 +128,7 @@ body.sudden #alarm{opacity:1;animation:alarm .5s steps(1) infinite}
   .clock{font-size:20px}
   #list{flex-direction:row;flex-wrap:wrap;align-content:flex-start;gap:3px}
   #list li{padding:2px 6px;font-size:11px;gap:4px;border-radius:7px}
-  #list i{width:8px;height:8px}#list b{font-size:11px}
+  #list i{width:8px;height:8px}#list b{font-size:11px}#list em{width:auto;font-size:10px}
   .rows{grid-template-columns:minmax(0,1fr)}
 }
 @media (prefers-reduced-motion:reduce){
@@ -409,7 +412,18 @@ $('allMinus10').addEventListener('click', () => { counts = counts.map(n => clamp
 /* ================= roster ================= */
 let aliveNow = [];
 function renderRoster() {
-  $('list').innerHTML = PEOPLE.map((n, i) => counts[i] ? `<li id="p${i}" style="--c:${css(COLORS[i])}"><i></i><span>${n}</span><b>${aliveNow[i]}</b></li>` : '').join('');
+  $('list').innerHTML = PEOPLE.map((n, i) => counts[i] ? `<li id="p${i}" style="--c:${css(COLORS[i])}"><em></em><i></i><span>${n}</span><b>${aliveNow[i]}</b></li>` : '').join('');
+  rerank();
+}
+// 남은 공이 많은 순으로 줄을 세운다. 공 개수가 같으면 같은 등수. 탈락자는 탈락할 때 정해진 등수 자리에 그대로 둔다.
+function rerank() {
+  const live = PEOPLE.map((_, i) => i).filter(i => counts[i] && aliveNow[i] > 0).sort((a, b) => aliveNow[b] - aliveNow[a] || a - b);
+  let rank = 0;
+  live.forEach((i, pos) => {
+    if (pos === 0 || aliveNow[i] !== aliveNow[live[pos - 1]]) rank = pos + 1;
+    const li = $('p' + i); if (!li) return;
+    li.style.order = pos; li.querySelector('em').textContent = rank; li.classList.toggle('lead', rank === 1);
+  });
 }
 function showToast(t1, t2 = '', color = '#ff2b4f') { const el = $('toast'); el.style.setProperty('--tc', color); el.querySelector('.t1').textContent = t1; el.querySelector('.t2').textContent = t2; el.className = ''; void el.offsetWidth; el.className = 'show'; }
 
@@ -439,11 +453,11 @@ function handle(e) {
     case 'phase': setSlots(e.safe); if (e.save !== undefined) { slotMeshes[e.save].flash = 1; if (!g.saved) showToast('LAST CHANCE', '마지막 두 명은 서든데스에서 결판!', '#39f08a'); g.saved = true; } break;
     case 'safe': slotMeshes[e.slot].flash = 1; audio.play('safe', { vol: .4, rate: rand(.95, 1.1), gap: .09 }); break;
     case 'out': {
-      slotMeshes[e.slot].flash = 1; aliveNow[e.o] = e.left;
+      slotMeshes[e.slot].flash = 1; aliveNow[e.o] = e.left; g.dirty = true;
       const li = $('p' + e.o); if (li) { li.querySelector('b').textContent = e.left; li.classList.add('hit'); setTimeout(() => li.classList.remove('hit'), 300); }
       burst(-HW + (e.slot + .5) * SLOT_W, 0.6, 0.6, 0xff2b4f, 26, 3.2, .7);
       if (e.gone) {
-        if (li) { li.classList.add('gone'); li.querySelector('b').textContent = g.rank + '위'; }
+        if (li) { li.classList.add('gone'); li.classList.remove('lead'); li.style.order = g.rank - 1; li.querySelector('em').textContent = g.rank; li.querySelector('b').textContent = 'OUT'; }
         g.rank--; audio.play('knockout', { vol: .65 }); if (!g.won) showToast(PEOPLE[e.o] + ' 탈락', `남은 사람 ${g.rank}명`, css(COLORS[e.o]));
       } else audio.play('out', { vol: .4, rate: rand(.9, 1.1), gap: .08 });
       break;
@@ -460,7 +474,7 @@ function finale(o) {
   audio.play('boom', { vol: 1 }); loops.fanfare = audio.play('fanfare', { vol: .8, loop: true, delay: .4 }); loops.crowd = audio.play('crowd', { vol: .8, loop: true, delay: .5 });
   loops.fw = audio.play('fireworks', { vol: .7, loop: true, delay: .5 }); audio.play('announcer', { vol: 1.2, delay: 1.1 });
   document.body.classList.remove('sudden'); document.body.classList.add('win'); if (!REDUCED) { document.body.classList.add('shake'); setTimeout(() => document.body.classList.remove('shake'), 1500); }
-  const li = $('p' + o); if (li) { li.classList.add('winner'); li.querySelector('b').textContent = '👑'; }
+  const li = $('p' + o); if (li) { li.classList.add('winner'); li.style.order = 0; li.querySelector('em').textContent = 1; li.querySelector('b').textContent = '👑'; }
   $('winName').textContent = PEOPLE[o]; $('win').style.setProperty('--wc', css(COLORS[o]));
   $('win').classList.remove('ready'); $('win').classList.add('on'); setTimeout(() => { $('win').classList.add('ready'); $('btnAgain').focus({ preventScroll: true }); }, 3500);
   burst(0, 8, 2, COLORS[o], 500, 13, 1.7); burst(0, 8, 2, 0xffffff, 200, 7, 1.1); confMesh.visible = true;
@@ -478,6 +492,7 @@ function updateGame(dt) {
   g.acc = Math.min(g.acc + dt, 0.1);
   while (g.acc >= DT) { g.acc -= DT; sim.step(); for (const e of sim.events) handle(e); sim.events.length = 0; }
   if (!g.won) $('clock').textContent = sim.t.toFixed(1).padStart(4, '0');
+  g.rosterT = (g.rosterT || 0) + dt; if (g.dirty && g.rosterT > 0.2) { g.dirty = false; g.rosterT = 0; rerank(); }   // 공이 수천 개일 때 매번 다시 세우지 않게 묶는다
   const N = sim.N, r = sim.R, showTags = sim.ballsAlive <= TAG_LIMIT, ts = (sim.ballsAlive > 70 ? 0.95 : sim.ballsAlive > 40 ? 1.12 : 1.35);
   // 판 위나 리프트 튜브에 있어 실제로 보이는 공만 앞에서부터 채워 그린다. 전체 공 수가 늘어도 그리는 양은 그대로다.
   let tags = 0, vis = 0;
