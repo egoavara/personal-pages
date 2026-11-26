@@ -57,6 +57,8 @@ export function mulberry32(a) {
 }
 export const initPhysics = () => RAPIER.init();
 /** 공이 많을수록 조금 작게 만들어 판이 막히지 않게 한다. */
+/** 공이 아주 많으면 다 쏟아지는 데만 35초를 넘긴다. 그때는 서든데스를 그만큼 늦춘다. */
+export const suddenTime = (n, minTime = 35) => Math.max(minTime, n / 62 + 12);
 export const ballRadius = n => Math.max(0.115, Math.min(0.19, 0.19 * Math.sqrt(160 / Math.max(1, n))));
 
 // 공 상태
@@ -70,10 +72,11 @@ export class Game {
   constructor(counts, { minTime = 35, seed = (Math.random() * 2 ** 31) | 0 } = {}) {
     const rnd = this.rnd = mulberry32(seed);
     this.rr = (a, b) => a + rnd() * (b - a);
-    this.minTime = minTime; this.t = 0; this.stepN = 0; this.events = [];
+    this.t = 0; this.stepN = 0; this.events = [];
     const owners = []; counts.forEach((n, o) => { for (let i = 0; i < n; i++) owners.push(o); });
     for (let i = owners.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [owners[i], owners[j]] = [owners[j], owners[i]]; }
     const N = this.N = owners.length, R = this.R = ballRadius(N);
+    this.minTime = suddenTime(N, minTime);
     this.owners = owners; this.x = new Float32Array(N); this.y = new Float32Array(N).fill(-9); this.state = new Uint8Array(N);
     this.t0 = new Float32Array(N); this.sx = new Float32Array(N); this.nx = new Int8Array(N); this.lx = new Float32Array(N); this.aux = new Int8Array(N); this.still = new Float32Array(N);
     this.alive = counts.slice(); this.ownersLeft = counts.filter(n => n > 0).length; this.ballsAlive = N; this.active = 0;
@@ -148,6 +151,8 @@ export class Game {
     const b = this.bodies[i]; b.setEnabled(true); b.setTranslation({ x, y }, true); b.setLinvel({ x: vx, y: vy }, true); b.setAngvel(0, true);
     this.state[i] = ACTIVE; this.x[i] = x; this.y[i] = y; this.still[i] = 0;
   }
+  /** WASM 쪽 메모리는 직접 풀어 줘야 한다. 판을 다시 시작하기 전에 부른다. */
+  dispose() { if (this.world) { this.world.free(); this.eq.free(); this.world = null; } }
   park(i, state) { this.bodies[i].setEnabled(false); this.state[i] = state; this.t0[i] = this.t; }
 
   step() {
@@ -200,6 +205,8 @@ export class Game {
     for (let i = 0; i < this.N; i++) {
       if (state[i] !== ACTIVE) continue;
       const body = bodies[i], p = body.translation(); x[i] = p.x; y[i] = p.y; active++;
+      // 판 밖으로 튕겨 나갔거나 좌표가 깨진 공은 잃어버리지 않게 투입구로 되돌린다
+      if (!(p.x > -HW - 0.6 && p.x < HW + 0.6 && p.y < H + 0.6)) { this.park(i, QUEUED); x[i] = NaN; this.nx[i] = -1; this.queue.push(i); active--; continue; }
       if (p.y < 0.55) {
         const slot = Math.max(0, Math.min(SLOTS - 1, Math.floor((p.x + HW) / SLOT_W))), o = this.owners[i];
         // 서든데스 전에는 마지막 두 사람 중 한 명이 사라지는 일이 없게, 그 공이 들어간 칸을 SAFE 로 뒤집는다.

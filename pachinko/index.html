@@ -161,10 +161,10 @@ body.sudden #alarm{opacity:1;animation:alarm .5s steps(1) infinite}
 
 <div id="setup"><div class="card">
   <img src="assets/img/logo.webp" alt="LUCKY PACHINKO">
-  <p>사람마다 공 개수를 정하고 굴리세요. OUT 칸에 빠진 공은 탈락,<br><b>마지막까지 공이 남은 한 명이 당첨</b>입니다. 한 판은 35초 남짓 걸립니다.</p>
+  <p>사람마다 공 개수를 정하고 굴리세요. OUT 칸에 빠진 공은 탈락,<br><b>마지막까지 공이 남은 한 명이 당첨</b>입니다. 한 판은 35초 이상, 공이 많으면 더 걸립니다.</p>
   <div class="rows" id="rows"></div>
   <div class="bar">
-    <span>공 <b id="total">0</b>개 · 참가 <b id="players">0</b>명</span>
+    <span>공 <b id="total">0</b>개 · 참가 <b id="players">0</b>명 · 약 <b id="eta">41</b>초</span>
     <div class="tools"><button class="icon-btn" id="allMinus10">−10</button><button class="icon-btn" id="allMinus">전체 −1</button><button class="icon-btn" id="allPlus">전체 +1</button><button class="icon-btn" id="allPlus10">+10</button></div>
   </div>
   <button class="go" id="btnGo" disabled>LOADING…</button>
@@ -174,10 +174,10 @@ body.sudden #alarm{opacity:1;animation:alarm .5s steps(1) infinite}
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from '../lucky-dice/vendor/RoundedBoxGeometry.js';
 import { RoomEnvironment } from '../lucky-dice/vendor/RoomEnvironment.js';
-import { initPhysics, Game, DT, ACTIVE, LIFT, BOARD, PINS, BUMPERS, SPINNERS, WARPS, WARP_R, KICKERS, FLIPPERS, DIVIDERS } from './sim.js';
+import { initPhysics, Game, DT, ACTIVE, LIFT, suddenTime, BOARD, PINS, BUMPERS, SPINNERS, WARPS, WARP_R, KICKERS, FLIPPERS, DIVIDERS } from './sim.js';
 
 const PEOPLE = ['benjamin.butn', 'angus.bak', 'bayne.jeong', 'beans.go', 'frisk.gwak', 'hasey.chong2', 'isla.moon', 'jacob.nam', 'jaeky.rs', 'kane.woz', 'kenny.kim2', 'otto.yoon', 'rudy.yoon'];
-const MAX_BALLS = 100, MIN_TIME = 35, TAG_LIMIT = 160;   // 남은 공이 TAG_LIMIT 개 이하일 때만 이름표를 붙인다
+const MAX_BALLS = 500, MIN_TIME = 35, TAG_LIMIT = 160;   // 남은 공이 TAG_LIMIT 개 이하일 때만 이름표를 붙인다
 const R = 0.19, { W, H, SLOTS, SLOT_TOP } = BOARD, HW = W / 2, SLOT_W = W / SLOTS;
 
 const $ = id => document.getElementById(id);
@@ -306,11 +306,11 @@ function setSlots(safe) { slotMeshes.forEach((s, i) => { s.safe = !!safe[i]; s.m
 /* balls + name tags */
 const MAXB = PEOPLE.length * MAX_BALLS;
 const ballMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0 }), MAXB);
-ballMesh.frustumCulled = false; ballMesh.count = 0; scene.add(ballMesh);
+ballMesh.setColorAt(0, new THREE.Color(1, 1, 1)); ballMesh.frustumCulled = false; ballMesh.count = 0; scene.add(ballMesh);
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _v = new THREE.Vector3(), _c = new THREE.Color();
 // 이름표: 사람별 이름을 한 장의 아틀라스에 그려 두고, 공마다 한 줄씩 골라 한 번에 그린다.
 const TAG_W = 640, TAG_H = 144;
-const tagRow = new THREE.InstancedBufferAttribute(new Float32Array(MAXB), 1).setUsage(THREE.DynamicDrawUsage);
+const tagRow = new THREE.InstancedBufferAttribute(new Float32Array(TAG_LIMIT), 1).setUsage(THREE.DynamicDrawUsage);
 const tagGeo = new THREE.PlaneGeometry(1, TAG_H / TAG_W); tagGeo.setAttribute('aRow', tagRow);
 const tagMat = new THREE.ShaderMaterial({
   uniforms: { map: { value: null }, rows: { value: PEOPLE.length } }, transparent: true, depthTest: false, depthWrite: false,
@@ -321,7 +321,7 @@ const tagMat = new THREE.ShaderMaterial({
       #include <colorspace_fragment>
     }`,
 });
-const tagMesh = new THREE.InstancedMesh(tagGeo, tagMat, MAXB); tagMesh.frustumCulled = false; tagMesh.renderOrder = 5; tagMesh.count = 0; scene.add(tagMesh);
+const tagMesh = new THREE.InstancedMesh(tagGeo, tagMat, TAG_LIMIT); tagMesh.frustumCulled = false; tagMesh.renderOrder = 5; tagMesh.count = 0; scene.add(tagMesh);
 function makeTags() {
   const c = document.createElement('canvas'); c.width = TAG_W; c.height = TAG_H * PEOPLE.length; const g = c.getContext('2d'); g.scale(2, 2);
   PEOPLE.forEach((name, i) => {
@@ -390,11 +390,12 @@ function updateConfetti(dt, t, emit) {
 /* ================= setup UI ================= */
 let counts = store.get('counts', null);
 if (!Array.isArray(counts) || counts.length !== PEOPLE.length) counts = PEOPLE.map(() => 3);
+counts = counts.map(n => clamp(Math.round(+n) || 0, 0, MAX_BALLS));
 function renderSetup() {
   const total = counts.reduce((a, b) => a + b, 0), players = counts.filter(n => n > 0).length;
   $('rows').innerHTML = PEOPLE.map((n, i) => `<div class="row${counts[i] ? '' : ' zero'}" style="--c:${css(COLORS[i])}"><i></i><span>${n}</span><em>${total ? Math.round(counts[i] / total * 100) : 0}%</em>
     <div class="step"><button data-i="${i}" data-d="-1" aria-label="${n} 공 줄이기">−</button><input type="number" inputmode="numeric" min="0" max="${MAX_BALLS}" value="${counts[i]}" data-i="${i}" aria-label="${n} 공 개수"><button data-i="${i}" data-d="1" aria-label="${n} 공 늘리기">+</button></div></div>`).join('');
-  $('total').textContent = total; $('players').textContent = players;
+  $('total').textContent = total.toLocaleString(); $('players').textContent = players; $('eta').textContent = Math.round(suddenTime(total, MIN_TIME) + 6);
   if (ready) { $('btnGo').disabled = players < 2; $('btnGo').textContent = players < 2 ? '2명 이상 필요' : 'START'; }
   store.set('counts', counts);
 }
@@ -407,7 +408,7 @@ $('allMinus10').addEventListener('click', () => { counts = counts.map(n => clamp
 
 /* ================= roster ================= */
 let aliveNow = [];
-function renderRoster(order = []) {
+function renderRoster() {
   $('list').innerHTML = PEOPLE.map((n, i) => counts[i] ? `<li id="p${i}" style="--c:${css(COLORS[i])}"><i></i><span>${n}</span><b>${aliveNow[i]}</b></li>` : '').join('');
 }
 function showToast(t1, t2 = '', color = '#ff2b4f') { const el = $('toast'); el.style.setProperty('--tc', color); el.querySelector('.t1').textContent = t1; el.querySelector('.t2').textContent = t2; el.className = ''; void el.offsetWidth; el.className = 'show'; }
@@ -420,10 +421,8 @@ async function start() {
   const sim = new Game(counts, { minTime: MIN_TIME });
   window.__sim = { balls: sim.N, radius: sim.R };
   aliveNow = counts.slice(); renderRoster();
-  ballMesh.count = sim.N; tagMesh.count = 0;
-  sim.owners.forEach((o, b) => { ballMesh.setColorAt(b, COLORS[o]); ballMesh.setMatrixAt(b, ZERO); });
-  ballMesh.instanceColor.needsUpdate = true;
-  game = { sim, acc: 0, tick: 0, rank: counts.filter(n => n > 0).length, won: false };
+  ballMesh.count = 0; tagMesh.count = 0;
+  game = { sim, acc: 0, tick: 0, rank: counts.filter(n => n > 0).length, won: false, saved: false };
   document.body.classList.remove('sudden', 'win', 'shake'); $('win').classList.remove('on', 'ready');
   $('setup').classList.add('gone');
   audio.play('start', { vol: .8 });
@@ -437,7 +436,7 @@ function handle(e) {
     case 'kick': kickerMeshes[e.i].flash = 1; audio.play('tink', { vol: .5, rate: .55, gap: .05 }); break;
     case 'warp': warpMeshes[e.i].flash = 1; audio.play('warp', { vol: .5, gap: .12 }); break;
     case 'warpout': warpMeshes[e.i].eflash = 1; break;
-    case 'phase': setSlots(e.safe); if (e.save !== undefined) { slotMeshes[e.save].flash = 1; showToast('LAST CHANCE', '마지막 두 명은 서든데스에서 결판!', '#39f08a'); } break;
+    case 'phase': setSlots(e.safe); if (e.save !== undefined) { slotMeshes[e.save].flash = 1; if (!g.saved) showToast('LAST CHANCE', '마지막 두 명은 서든데스에서 결판!', '#39f08a'); g.saved = true; } break;
     case 'safe': slotMeshes[e.slot].flash = 1; audio.play('safe', { vol: .4, rate: rand(.95, 1.1), gap: .09 }); break;
     case 'out': {
       slotMeshes[e.slot].flash = 1; aliveNow[e.o] = e.left;
@@ -467,7 +466,7 @@ function finale(o) {
   burst(0, 8, 2, COLORS[o], 500, 13, 1.7); burst(0, 8, 2, 0xffffff, 200, 7, 1.1); confMesh.visible = true;
 }
 function again() {
-  if (!fin) return; ['fanfare', 'crowd', 'fw'].forEach(k => audio.stop(loops[k], .8)); fin = null; game = null;
+  if (!fin) return; ['fanfare', 'crowd', 'fw'].forEach(k => audio.stop(loops[k], .8)); fin = null; game.sim.dispose(); game = null;
   $('win').classList.remove('on', 'ready'); document.body.classList.remove('win', 'shake');
   ballMesh.count = 0; tagMesh.count = 0; setSlots([]); slotMeshes.forEach(s => { s.mat.map = null; s.mat.needsUpdate = true; });
   $('clock').textContent = '00.0'; renderSetup(); $('setup').classList.remove('gone');
@@ -480,17 +479,18 @@ function updateGame(dt) {
   while (g.acc >= DT) { g.acc -= DT; sim.step(); for (const e of sim.events) handle(e); sim.events.length = 0; }
   if (!g.won) $('clock').textContent = sim.t.toFixed(1).padStart(4, '0');
   const N = sim.N, r = sim.R, showTags = sim.ballsAlive <= TAG_LIMIT, ts = (sim.ballsAlive > 70 ? 0.95 : sim.ballsAlive > 40 ? 1.12 : 1.35);
-  let tags = 0;
+  // 판 위나 리프트 튜브에 있어 실제로 보이는 공만 앞에서부터 채워 그린다. 전체 공 수가 늘어도 그리는 양은 그대로다.
+  let tags = 0, vis = 0;
   for (let b = 0; b < N; b++) {
     const st = sim.state[b];
-    if (st !== ACTIVE && st !== LIFT) { ballMesh.setMatrixAt(b, ZERO); continue; }
+    if (st !== ACTIVE && st !== LIFT) continue;
     const x = sim.x[b], y = sim.y[b];
-    _m.makeScale(r, r, r).setPosition(x, y, r + 0.02); ballMesh.setMatrixAt(b, _m);
-    if (showTags && st === ACTIVE && y > 0.4) {
+    _m.makeScale(r, r, r).setPosition(x, y, r + 0.02); ballMesh.setMatrixAt(vis, _m); ballMesh.setColorAt(vis, COLORS[sim.owners[b]]); vis++;
+    if (showTags && tags < TAG_LIMIT && st === ACTIVE && y > 0.4) {
       _m.makeScale(ts, ts, 1).setPosition(x, y + r + 0.17 * ts, 0.7); tagMesh.setMatrixAt(tags, _m); tagRow.array[tags] = sim.owners[b]; tags++;
     }
   }
-  ballMesh.instanceMatrix.needsUpdate = true;
+  ballMesh.count = vis; if (vis) { ballMesh.instanceMatrix.needsUpdate = true; ballMesh.instanceColor.needsUpdate = true; }
   tagMesh.count = tags; if (tags) { tagMesh.instanceMatrix.needsUpdate = true; tagRow.needsUpdate = true; }
   // 핀에 부딪히는 소리는 판 위의 공 수에 비례해 흩뿌린다
   if (!g.won) {
@@ -543,6 +543,7 @@ function frame() {
 }
 
 addEventListener('resize', fitCamera);
+if (window.ResizeObserver) new ResizeObserver(fitCamera).observe(stage);   // 처음에 크기가 0 이었다가 나중에 잡히는 경우까지 챙긴다
 $('btnGo').addEventListener('click', start);
 $('btnAgain').addEventListener('click', again);
 $('btnMute').addEventListener('click', () => audio.setMuted(!audio.muted));
