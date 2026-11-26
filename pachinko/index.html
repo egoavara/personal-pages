@@ -39,7 +39,7 @@ body.shake #stage{animation:shake .09s linear infinite}
 .clock small{display:block;font:800 10px var(--body);letter-spacing:.2em;color:var(--mute);margin-bottom:4px}
 #list{list-style:none;display:flex;flex-direction:column;gap:4px;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;flex:1;min-height:0}
 #list::-webkit-scrollbar{display:none}
-#list li{display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);font-weight:700;font-size:14px;transition:opacity .4s,background .3s}
+#list li{position:relative;display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);font-weight:700;font-size:14px;transition:opacity .4s,background .3s}
 #list em{font:400 12px var(--display);color:var(--mute);width:18px;text-align:right;flex:none;font-style:normal}
 #list li.lead em{color:var(--gold)}
 #list li.lead{border-color:rgba(255,200,58,.5)}
@@ -416,13 +416,27 @@ function renderRoster() {
   rerank();
 }
 // 남은 공이 많은 순으로 줄을 세운다. 공 개수가 같으면 같은 등수. 탈락자는 탈락할 때 정해진 등수 자리에 그대로 둔다.
+const goneRank = {};
 function rerank() {
+  // 자리를 바꾸기 전 위치를 재 두고, 바꾼 뒤 그 차이만큼 밀어 놓았다가 제자리로 미끄러지게 한다 (FLIP).
+  const lis = [...$('list').children], before = lis.map(l => l.getBoundingClientRect());
+  lis.forEach(l => l.getAnimations().forEach(a => { if (a.id === 'slide') a.cancel(); }));
   const live = PEOPLE.map((_, i) => i).filter(i => counts[i] && aliveNow[i] > 0).sort((a, b) => aliveNow[b] - aliveNow[a] || a - b);
   let rank = 0;
   live.forEach((i, pos) => {
     if (pos === 0 || aliveNow[i] !== aliveNow[live[pos - 1]]) rank = pos + 1;
     const li = $('p' + i); if (!li) return;
     li.style.order = pos; li.querySelector('em').textContent = rank; li.classList.toggle('lead', rank === 1);
+  });
+  for (const i in goneRank) { const li = $('p' + i); if (li) { li.style.order = goneRank[i] - 1; li.querySelector('em').textContent = goneRank[i]; } }
+  if (REDUCED) return;
+  lis.forEach((l, k) => {
+    const now = l.getBoundingClientRect(), dx = before[k].left - now.left, dy = before[k].top - now.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    const up = dy > 0 || (dy === 0 && dx > 0);   // 위로 올라가는 줄이 다른 줄 위를 지나가게 한다
+    l.style.zIndex = up ? 2 : 1;
+    const an = l.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.9,.25,1)' });
+    an.id = 'slide'; an.onfinish = () => { l.style.zIndex = ''; };
   });
 }
 function showToast(t1, t2 = '', color = '#ff2b4f') { const el = $('toast'); el.style.setProperty('--tc', color); el.querySelector('.t1').textContent = t1; el.querySelector('.t2').textContent = t2; el.className = ''; void el.offsetWidth; el.className = 'show'; }
@@ -434,6 +448,7 @@ async function start() {
   try { await audio.init(); await audio.ctx.resume(); } catch (e) { console.warn(e); }
   const sim = new Game(counts, { minTime: MIN_TIME });
   window.__sim = { balls: sim.N, radius: sim.R };
+  for (const k in goneRank) delete goneRank[k];
   aliveNow = counts.slice(); renderRoster();
   ballMesh.count = 0; tagMesh.count = 0;
   game = { sim, acc: 0, tick: 0, rank: counts.filter(n => n > 0).length, won: false, saved: false };
@@ -457,7 +472,7 @@ function handle(e) {
       const li = $('p' + e.o); if (li) { li.querySelector('b').textContent = e.left; li.classList.add('hit'); setTimeout(() => li.classList.remove('hit'), 300); }
       burst(-HW + (e.slot + .5) * SLOT_W, 0.6, 0.6, 0xff2b4f, 26, 3.2, .7);
       if (e.gone) {
-        if (li) { li.classList.add('gone'); li.classList.remove('lead'); li.style.order = g.rank - 1; li.querySelector('em').textContent = g.rank; li.querySelector('b').textContent = 'OUT'; }
+        if (li) { li.classList.add('gone'); li.classList.remove('lead'); goneRank[e.o] = g.rank; li.querySelector('b').textContent = 'OUT'; }
         g.rank--; audio.play('knockout', { vol: .65 }); if (!g.won) showToast(PEOPLE[e.o] + ' 탈락', `남은 사람 ${g.rank}명`, css(COLORS[e.o]));
       } else audio.play('out', { vol: .4, rate: rand(.9, 1.1), gap: .08 });
       break;
@@ -474,7 +489,8 @@ function finale(o) {
   audio.play('boom', { vol: 1 }); loops.fanfare = audio.play('fanfare', { vol: .8, loop: true, delay: .4 }); loops.crowd = audio.play('crowd', { vol: .8, loop: true, delay: .5 });
   loops.fw = audio.play('fireworks', { vol: .7, loop: true, delay: .5 }); audio.play('announcer', { vol: 1.2, delay: 1.1 });
   document.body.classList.remove('sudden'); document.body.classList.add('win'); if (!REDUCED) { document.body.classList.add('shake'); setTimeout(() => document.body.classList.remove('shake'), 1500); }
-  const li = $('p' + o); if (li) { li.classList.add('winner'); li.style.order = 0; li.querySelector('em').textContent = 1; li.querySelector('b').textContent = '👑'; }
+  const li = $('p' + o); if (li) { li.classList.add('winner'); li.querySelector('b').textContent = '👑'; }
+  rerank();
   $('winName').textContent = PEOPLE[o]; $('win').style.setProperty('--wc', css(COLORS[o]));
   $('win').classList.remove('ready'); $('win').classList.add('on'); setTimeout(() => { $('win').classList.add('ready'); $('btnAgain').focus({ preventScroll: true }); }, 3500);
   burst(0, 8, 2, COLORS[o], 500, 13, 1.7); burst(0, 8, 2, 0xffffff, 200, 7, 1.1); confMesh.visible = true;
